@@ -1,4 +1,9 @@
-use std::{error::Error, rc::Rc, sync::mpsc::{self, Receiver}, thread};
+use std::{
+    borrow::Borrow, error::Error, sync::{
+        mpsc::{self, Receiver},
+        Arc, Mutex,
+    }, thread
+};
 
 use d3dx12::transition_barrier;
 use renderer::Renderer;
@@ -8,7 +13,7 @@ use windows::Win32::{
     Graphics::Direct3D12::{D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET},
 };
 use winit::{
-    dpi::LogicalSize,
+    dpi::{LogicalSize, PhysicalSize},
     event::{Event, WindowEvent},
     event_loop::EventLoop,
     platform::windows::WindowExtWindows,
@@ -33,18 +38,18 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let (tx, rx) = mpsc::channel();
 
-    let mut main_thread = Some(thread::spawn(move || { main_thread(rx) }));
+    let initial_size = window.inner_size();
+    let hwnd = HWND(window.hwnd());
 
-    let mut renderer = Renderer::new(window.inner_size(), HWND(window.hwnd()));
-    let mut ui = Ui::new(
-        &window,
-        &renderer.device,
-        renderer.descriptor_heap.get_descriptor_handles(0),
-    );
+    let ui = Arc::new(Ui::new(&window));
+    let ui_for_main_thread = ui.clone();
+
+    let mut main_thread = Some(thread::spawn(move || {
+        main_thread(rx, initial_size, hwnd, ui_for_main_thread)
+    }));
 
     event_loop.run(move |event, _, control_flow| {
-
-        ui.handle_event(&window, &event);
+        ui.lock().unwrap().handle_event(&window, &event);
 
         match event {
             Event::WindowEvent {
@@ -56,30 +61,47 @@ fn main() -> Result<(), Box<dyn Error>> {
                     thread.join().unwrap();
                 }
                 control_flow.set_exit();
-            },
-            Event::RedrawRequested(_) => render(&mut ui, &mut renderer, &window),
+            }
+            Event::RedrawRequested(_) => (),
             _ => (),
         }
     });
 }
 
-fn main_thread(rx: Receiver<ThreadMessage>) {
+fn main_thread(
+    rx: Receiver<ThreadMessage>,
+    initial_size: PhysicalSize<u32>,
+    hwnd: HWND,
+    ui: Arc<Mutex<Ui>>,
+) {
+    let mut renderer = Renderer::new(initial_size, hwnd);
+    let mut ui_renderer = ui.lock().unwrap().get_renderer(
+        &renderer.device,
+        renderer.descriptor_heap.get_descriptor_handles(0),
+    );
+
     print!("main_thread!");
     'mainloop: loop {
         for message in rx.try_iter() {
-            match message {                            
+            match message {
                 ThreadMessage::Quit => break 'mainloop,
             }
         }
+
+        render(
+            ui.borrow(),
+            &mut renderer,
+            &mut ui_renderer,
+        );
     }
     print!("leaving main_thread!");
 }
 
-fn render(ui: &mut Ui, renderer: &mut Renderer, _window: &Window) {
-    // Prepare UI
-    let imgui = ui.new_frame();
-    imgui.show_demo_window(&mut true);
-
+fn render(
+    ui: &Mutex<Ui>,
+    renderer: &mut Renderer,
+    ui_renderer: &mut imgui_windows_d3d12_renderer::Renderer,    
+) {
     renderer.start_new_frame();
 
     let render_target = renderer.get_render_target().clone();
@@ -104,7 +126,14 @@ fn render(ui: &mut Ui, renderer: &mut Renderer, _window: &Window) {
         cl.SetDescriptorHeaps(&[Some(renderer.descriptor_heap.heap.clone())]);
     }
 
-    ui.render(&cl);
+    // Prepare UI
+    {
+        let mut ui = ui.lock().unwrap();
+        let imgui = ui.new_frame(ui_renderer);
+        imgui.show_demo_window(&mut true);
+
+        ui.render(ui_renderer, &cl);
+    }
 
     unsafe {
         cl.ResourceBarrier(&[transition_barrier(

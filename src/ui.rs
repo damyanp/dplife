@@ -1,21 +1,30 @@
-use std::time::Instant;
+use std::{sync::Mutex, time::Instant};
 
 use d3dx12::DescriptorHandles;
 use imgui::{FontConfig, FontSource};
 use imgui_windows_d3d12_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use windows::Win32::Graphics::{Direct3D12::{ID3D12Device, ID3D12GraphicsCommandList}, Dxgi::Common::DXGI_FORMAT_R8G8B8A8_UNORM};
-use winit::{event::{Event, WindowEvent}, window::Window};
+use windows::Win32::Graphics::{
+    Direct3D12::{ID3D12Device, ID3D12GraphicsCommandList},
+    Dxgi::Common::DXGI_FORMAT_R8G8B8A8_UNORM,
+};
+use winit::{
+    event::{Event, WindowEvent},
+    window::Window,
+};
 
 pub struct Ui {
     imgui: imgui::Context,
     winit_platform: WinitPlatform,
     last_frame_instant: Instant,
-    renderer: Renderer
 }
 
+unsafe impl Send for Ui {}
+
 impl Ui {
-    pub fn new(window: &Window, device: &ID3D12Device, font_descriptor_handles: DescriptorHandles) -> Self {
+    pub fn new(
+        window: &Window,
+    ) -> Mutex<Self> {
         let mut imgui = imgui::Context::create();
         let mut winit_platform = WinitPlatform::init(&mut imgui);
 
@@ -32,20 +41,27 @@ impl Ui {
 
         imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
 
-        let renderer = Renderer::new(
-            &mut imgui,
+        Mutex::new(Ui {
+            imgui,
+            winit_platform,
+            last_frame_instant: Instant::now(),
+        })
+    }
+
+    pub fn get_renderer(
+        &mut self,
+        device: &ID3D12Device,
+        font_descriptor_handles: DescriptorHandles,
+    ) -> Renderer {
+        Renderer::new(
+            &mut self.imgui,
             device.clone(),
             crate::renderer::FRAME_COUNT,
             DXGI_FORMAT_R8G8B8A8_UNORM,
             font_descriptor_handles.cpu,
-            font_descriptor_handles.gpu).unwrap();
-
-        Ui {
-            imgui,
-            winit_platform,
-            last_frame_instant: Instant::now(),
-            renderer
-        }
+            font_descriptor_handles.gpu,
+        )
+        .unwrap()
     }
 
     pub fn handle_event(&mut self, window: &Window, event: &Event<'_, ()>) {
@@ -76,13 +92,12 @@ impl Ui {
         }
     }
 
-    pub fn new_frame(&mut self) -> &mut imgui::Ui {
-        self.renderer.new_frame(&mut self.imgui).unwrap();
+    pub fn new_frame(&mut self, renderer: &mut Renderer) -> &mut imgui::Ui {
+        renderer.new_frame(&mut self.imgui).unwrap();
         self.imgui.new_frame()
     }
 
-    pub fn render(&mut self, cl: &ID3D12GraphicsCommandList) {
-
-        self.renderer.render_draw_data(self.imgui.render(), cl);
+    pub fn render(&mut self, renderer: &mut Renderer, cl: &ID3D12GraphicsCommandList) {
+        renderer.render_draw_data(self.imgui.render(), cl);
     }
 }
