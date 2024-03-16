@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, rc::Rc, sync::mpsc::{self, Receiver}, thread};
 
 use d3dx12::transition_barrier;
 use renderer::Renderer;
@@ -18,6 +18,10 @@ use winit::{
 mod renderer;
 mod ui;
 
+enum ThreadMessage {
+    Quit,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let event_loop = EventLoop::new();
 
@@ -27,6 +31,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
     let window = builder.build(&event_loop)?;
 
+    let (tx, rx) = mpsc::channel();
+
+    let mut main_thread = Some(thread::spawn(move || { main_thread(rx) }));
+
     let mut renderer = Renderer::new(window.inner_size(), HWND(window.hwnd()));
     let mut ui = Ui::new(
         &window,
@@ -35,17 +43,36 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     event_loop.run(move |event, _, control_flow| {
+
         ui.handle_event(&window, &event);
 
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => control_flow.set_exit(),
+            } => {
+                if let Some(thread) = main_thread.take() {
+                    tx.send(ThreadMessage::Quit).unwrap();
+                    thread.join().unwrap();
+                }
+                control_flow.set_exit();
+            },
             Event::RedrawRequested(_) => render(&mut ui, &mut renderer, &window),
             _ => (),
         }
     });
+}
+
+fn main_thread(rx: Receiver<ThreadMessage>) {
+    print!("main_thread!");
+    'mainloop: loop {
+        for message in rx.try_iter() {
+            match message {                            
+                ThreadMessage::Quit => break 'mainloop,
+            }
+        }
+    }
+    print!("leaving main_thread!");
 }
 
 fn render(ui: &mut Ui, renderer: &mut Renderer, _window: &Window) {
