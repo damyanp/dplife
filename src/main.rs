@@ -12,14 +12,12 @@ use d3dx12::transition_barrier;
 use imgui_manager::ImguiManager;
 use renderer::Renderer;
 use windows::Win32::{
-    Foundation::HWND,
     Graphics::Direct3D12::{D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET},
 };
 use winit::{
-    dpi::{LogicalSize, PhysicalSize},
+    dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::EventLoop,
-    platform::windows::WindowExtWindows,
     window::WindowBuilder,
 };
 
@@ -37,22 +35,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         width: 1024,
         height: 768,
     });
+
     let window = builder.build(&event_loop)?;
 
     let (tx, rx) = mpsc::channel();
 
-    let initial_size = window.inner_size();
-    let hwnd = HWND(window.hwnd());
-
-    let ui = Arc::new(ImguiManager::new(&window));
-    let ui_for_main_thread = ui.clone();
+    let imgui_manager = Arc::new(ImguiManager::new(window));
+    let imgui_manager_for_main_thread = imgui_manager.clone();
 
     let mut main_thread = Some(thread::spawn(move || {
-        main_thread(rx, initial_size, hwnd, ui_for_main_thread)
+        main_thread(rx, imgui_manager_for_main_thread)
     }));
 
     event_loop.run(move |event, _, control_flow| {
-        ui.lock().unwrap().handle_event(&window, &event);
+        imgui_manager.lock().unwrap().handle_event(&event);
 
         match event {
             Event::WindowEvent {
@@ -68,7 +64,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             Event::RedrawRequested(_) => (),
             _ => (),
         }
-    });
+    });    
 }
 
 #[derive(Default)]
@@ -92,15 +88,17 @@ impl UI {
 
 fn main_thread(
     rx: Receiver<ThreadMessage>,
-    initial_size: PhysicalSize<u32>,
-    hwnd: HWND,
     imgui_manager: Arc<Mutex<ImguiManager>>,
 ) {
-    let mut renderer = Renderer::new(initial_size, hwnd);
-    let mut ui_renderer = imgui_manager.lock().unwrap().new_renderer(
+    let mut im = imgui_manager.lock().unwrap();
+
+    let mut renderer = Renderer::new(&im.window.lock().unwrap());
+    let mut ui_renderer = im.new_renderer(
         &renderer.device,
         renderer.descriptor_heap.get_descriptor_handles(0),
     );
+
+    drop(im);
 
     let mut ui = UI::default();
 

@@ -1,4 +1,7 @@
-use std::{sync::Mutex, time::Instant};
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use d3dx12::DescriptorHandles;
 use imgui::{FontConfig, FontSource};
@@ -15,6 +18,7 @@ use winit::{
 
 pub struct ImguiManager {
     imgui: imgui::Context,
+    pub window: Arc<Mutex<Window>>,
     winit_platform: WinitPlatform,
     last_frame_instant: Instant,
 }
@@ -22,11 +26,11 @@ pub struct ImguiManager {
 unsafe impl Send for ImguiManager {}
 
 impl ImguiManager {
-    pub fn new(window: &Window) -> Mutex<Self> {
+    pub fn new(window: Window) -> Mutex<Self> {
         let mut imgui = imgui::Context::create();
         let mut winit_platform = WinitPlatform::init(&mut imgui);
 
-        winit_platform.attach_window(imgui.io_mut(), window, HiDpiMode::Rounded);
+        winit_platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Rounded);
 
         let hidpi_factor = winit_platform.hidpi_factor();
         let font_size = (13.0 * hidpi_factor) as f32;
@@ -39,8 +43,11 @@ impl ImguiManager {
 
         imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
 
+        let window = Arc::new(Mutex::new(window));
+
         Mutex::new(ImguiManager {
             imgui,
+            window,
             winit_platform,
             last_frame_instant: Instant::now(),
         })
@@ -62,7 +69,7 @@ impl ImguiManager {
         .unwrap()
     }
 
-    pub fn handle_event(&mut self, window: &Window, event: &Event<'_, ()>) {
+    pub fn handle_event(&mut self, event: &Event<'_, ()>) {
         match event {
             Event::NewEvents(_) => {
                 let now = Instant::now();
@@ -71,25 +78,28 @@ impl ImguiManager {
                     .update_delta_time(now - self.last_frame_instant);
                 self.last_frame_instant = now;
             }
-            Event::MainEventsCleared => {
-                self.winit_platform
-                    .prepare_frame(self.imgui.io_mut(), window)
-                    .unwrap();
-            }
+            Event::MainEventsCleared => {}
             Event::WindowEvent {
                 event: WindowEvent::Resized(_),
                 ..
-            } => self
-                .winit_platform
-                .handle_event(self.imgui.io_mut(), window, event),
+            } => self.winit_platform.handle_event(
+                self.imgui.io_mut(),
+                &self.window.lock().unwrap(),
+                event,
+            ),
 
-            event => self
-                .winit_platform
-                .handle_event(self.imgui.io_mut(), window, event),
+            event => self.winit_platform.handle_event(
+                self.imgui.io_mut(),
+                &self.window.lock().unwrap(),
+                event,
+            ),
         }
     }
 
     pub fn new_frame(&mut self, renderer: &mut Renderer) -> &mut imgui::Ui {
+        self.winit_platform
+            .prepare_frame(self.imgui.io_mut(), &self.window.lock().unwrap())
+            .unwrap();
         renderer.new_frame(&mut self.imgui).unwrap();
         self.imgui.new_frame()
     }

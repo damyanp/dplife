@@ -12,6 +12,8 @@ use windows::{
         System::Threading::{CreateEventA, WaitForSingleObject, INFINITE},
     },
 };
+use winit::window::Window;
+use winit::platform::windows::WindowExtWindows;
 
 pub struct Renderer {
     pub device: ID3D12Device,
@@ -47,7 +49,7 @@ pub struct Frame {
 }
 
 impl Renderer {
-    pub fn new(size: winit::dpi::PhysicalSize<u32>, hwnd: HWND) -> Self {
+    pub fn new(window: &Window) -> Self {
         unsafe {
             let (factory, device) = create_device().unwrap();
             let command_queue = device
@@ -56,6 +58,9 @@ impl Renderer {
                     ..Default::default()
                 })
                 .unwrap();
+
+            let size = window.inner_size();
+            let hwnd = HWND(window.hwnd());
 
             let swap_chain = SwapChain::new(&factory, &device, &command_queue, size, hwnd);
 
