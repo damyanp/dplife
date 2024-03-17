@@ -75,7 +75,6 @@ impl ImguiManager {
                 self.winit_platform
                     .prepare_frame(self.imgui.io_mut(), window)
                     .unwrap();
-                window.request_redraw();
             }
             Event::WindowEvent {
                 event: WindowEvent::Resized(_),
