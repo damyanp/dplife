@@ -9,8 +9,8 @@ use std::{
 };
 
 use d3dx12::transition_barrier;
-use renderer::Renderer;
 use imgui_manager::ImguiManager;
+use renderer::Renderer;
 use windows::Win32::{
     Foundation::HWND,
     Graphics::Direct3D12::{D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET},
@@ -23,8 +23,8 @@ use winit::{
     window::WindowBuilder,
 };
 
-mod renderer;
 mod imgui_manager;
+mod renderer;
 
 enum ThreadMessage {
     Quit,
@@ -71,17 +71,38 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 }
 
+#[derive(Default)]
+struct UI {
+    demo_window: bool,
+}
+
+impl UI {
+    pub fn render(&mut self, imgui: &mut imgui::Ui) {
+        imgui.checkbox("Demo", &mut self.demo_window);
+
+        if self.demo_window {
+            imgui.show_demo_window(&mut self.demo_window);
+        }
+
+        if !imgui.io().want_capture_mouse {
+            imgui.text(format!("Click: {:?} {:?}", imgui.io().mouse_pos, imgui.io().want_capture_mouse));
+        }
+    }
+}
+
 fn main_thread(
     rx: Receiver<ThreadMessage>,
     initial_size: PhysicalSize<u32>,
     hwnd: HWND,
-    ui: Arc<Mutex<ImguiManager>>,
+    imgui_manager: Arc<Mutex<ImguiManager>>,
 ) {
     let mut renderer = Renderer::new(initial_size, hwnd);
-    let mut ui_renderer = ui.lock().unwrap().new_renderer(
+    let mut ui_renderer = imgui_manager.lock().unwrap().new_renderer(
         &renderer.device,
         renderer.descriptor_heap.get_descriptor_handles(0),
     );
+
+    let mut ui = UI::default();
 
     'mainloop: loop {
         #[allow(clippy::never_loop)]
@@ -91,16 +112,22 @@ fn main_thread(
             }
         }
 
-        render(ui.borrow(), &mut renderer, &mut ui_renderer);
+        render(
+            imgui_manager.borrow(),
+            &mut renderer,
+            &mut ui_renderer,
+            &mut ui,
+        );
     }
 
     renderer.shutdown();
 }
 
 fn render(
-    ui: &Mutex<ImguiManager>,
+    imgui_manager: &Mutex<ImguiManager>,
     renderer: &mut Renderer,
     ui_renderer: &mut imgui_windows_d3d12_renderer::Renderer,
+    ui: &mut UI,
 ) {
     renderer.start_new_frame();
 
@@ -128,13 +155,11 @@ fn render(
 
     // Prepare UI
     {
-        let mut ui = ui.lock().unwrap();
-        let imgui = ui.new_frame(ui_renderer);
-        imgui.show_demo_window(&mut true);
+        let mut imgui_manager = imgui_manager.lock().unwrap();
 
-        imgui.text("Hello world");
+        ui.render(imgui_manager.new_frame(ui_renderer));
 
-        ui.render(ui_renderer, &cl);
+        imgui_manager.render(ui_renderer, &cl);
     }
 
     unsafe {
