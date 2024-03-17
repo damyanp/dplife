@@ -13,15 +13,15 @@ use winit::{
     window::Window,
 };
 
-pub struct Ui {
+pub struct ImguiManager {
     imgui: imgui::Context,
     winit_platform: WinitPlatform,
     last_frame_instant: Instant,
 }
 
-unsafe impl Send for Ui {}
+unsafe impl Send for ImguiManager {}
 
-impl Ui {
+impl ImguiManager {
     pub fn new(window: &Window) -> Mutex<Self> {
         let mut imgui = imgui::Context::create();
         let mut winit_platform = WinitPlatform::init(&mut imgui);
@@ -39,14 +39,14 @@ impl Ui {
 
         imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
 
-        Mutex::new(Ui {
+        Mutex::new(ImguiManager {
             imgui,
             winit_platform,
             last_frame_instant: Instant::now(),
         })
     }
 
-    pub fn get_renderer(
+    pub fn new_renderer(
         &mut self,
         device: &ID3D12Device,
         font_descriptor_handles: DescriptorHandles,

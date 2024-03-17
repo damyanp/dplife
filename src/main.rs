@@ -10,7 +10,7 @@ use std::{
 
 use d3dx12::transition_barrier;
 use renderer::Renderer;
-use ui::Ui;
+use imgui_manager::ImguiManager;
 use windows::Win32::{
     Foundation::HWND,
     Graphics::Direct3D12::{D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET},
@@ -24,7 +24,7 @@ use winit::{
 };
 
 mod renderer;
-mod ui;
+mod imgui_manager;
 
 enum ThreadMessage {
     Quit,
@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let initial_size = window.inner_size();
     let hwnd = HWND(window.hwnd());
 
-    let ui = Arc::new(Ui::new(&window));
+    let ui = Arc::new(ImguiManager::new(&window));
     let ui_for_main_thread = ui.clone();
 
     let mut main_thread = Some(thread::spawn(move || {
@@ -75,10 +75,10 @@ fn main_thread(
     rx: Receiver<ThreadMessage>,
     initial_size: PhysicalSize<u32>,
     hwnd: HWND,
-    ui: Arc<Mutex<Ui>>,
+    ui: Arc<Mutex<ImguiManager>>,
 ) {
     let mut renderer = Renderer::new(initial_size, hwnd);
-    let mut ui_renderer = ui.lock().unwrap().get_renderer(
+    let mut ui_renderer = ui.lock().unwrap().new_renderer(
         &renderer.device,
         renderer.descriptor_heap.get_descriptor_handles(0),
     );
@@ -98,7 +98,7 @@ fn main_thread(
 }
 
 fn render(
-    ui: &Mutex<Ui>,
+    ui: &Mutex<ImguiManager>,
     renderer: &mut Renderer,
     ui_renderer: &mut imgui_windows_d3d12_renderer::Renderer,
 ) {
