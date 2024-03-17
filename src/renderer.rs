@@ -14,12 +14,11 @@ use windows::{
 };
 
 pub struct Renderer {
-    factory: IDXGIFactory4,
     pub device: ID3D12Device,
     command_queue: ID3D12CommandQueue,
     swap_chain: SwapChain,
     pub descriptor_heap: CbvSrvUavDescriptorHeap,
-    frame_manager: FrameManager,
+    frame_manager: Option<FrameManager>,
 }
 
 pub const FRAME_COUNT: usize = 2;
@@ -68,10 +67,9 @@ impl Renderer {
                 CbvSrvUavDescriptorHeap::new(&device, 1, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)
                     .unwrap();
 
-            let frame_manager = FrameManager::new(&device);
+            let frame_manager = Some(FrameManager::new(&device));
 
             Renderer {
-                factory,
                 device,
                 command_queue,
                 swap_chain,
@@ -82,15 +80,21 @@ impl Renderer {
     }
 
     pub fn start_new_frame(&mut self) {
-        self.frame_manager.start_new_frame()
+        self.frame_manager.as_mut().unwrap().start_new_frame()
     }
 
     pub fn end_frame(&mut self) {
-        self.frame_manager.end_frame(&self.command_queue);
+        self.frame_manager
+            .as_mut()
+            .unwrap()
+            .end_frame(&self.command_queue);
     }
 
     pub fn new_command_list(&mut self) -> ID3D12GraphicsCommandList {
-        self.frame_manager.new_command_list(&self.device)
+        self.frame_manager
+            .as_mut()
+            .unwrap()
+            .new_command_list(&self.device)
     }
 
     pub fn set_viewports_and_scissors(&self, cl: &ID3D12GraphicsCommandList) {
@@ -111,8 +115,15 @@ impl Renderer {
         self.swap_chain.get_rtv_handle()
     }
 
-    pub(crate) fn present(&self) {
+    pub fn present(&self) {
         self.swap_chain.present();
+    }
+
+    pub fn shutdown(&mut self) {
+        // take away the frame_manager - effectively dropping the frame manager.
+        // This will force all in-flight frames to complete.
+        let frame_manager = self.frame_manager.take();
+        drop(frame_manager);
     }
 }
 
@@ -232,6 +243,16 @@ impl FrameManager {
 
     fn new_command_list(&mut self, device: &ID3D12Device) -> ID3D12GraphicsCommandList {
         self.frames[self.frame_index].new_command_list(device)
+    }
+}
+
+impl Drop for FrameManager {
+    fn drop(&mut self) {
+        unsafe {
+            for frame in &self.frames {
+                frame.wait(&self.fence, self.fence_event);
+            }
+        }
     }
 }
 

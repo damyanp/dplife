@@ -1,8 +1,11 @@
 use std::{
-    borrow::Borrow, error::Error, sync::{
+    borrow::Borrow,
+    error::Error,
+    sync::{
         mpsc::{self, Receiver},
         Arc, Mutex,
-    }, thread
+    },
+    thread,
 };
 
 use d3dx12::transition_barrier;
@@ -17,7 +20,7 @@ use winit::{
     event::{Event, WindowEvent},
     event_loop::EventLoop,
     platform::windows::WindowExtWindows,
-    window::{Window, WindowBuilder},
+    window::WindowBuilder,
 };
 
 mod renderer;
@@ -80,27 +83,24 @@ fn main_thread(
         renderer.descriptor_heap.get_descriptor_handles(0),
     );
 
-    print!("main_thread!");
     'mainloop: loop {
+        #[allow(clippy::never_loop)]
         for message in rx.try_iter() {
             match message {
                 ThreadMessage::Quit => break 'mainloop,
             }
         }
 
-        render(
-            ui.borrow(),
-            &mut renderer,
-            &mut ui_renderer,
-        );
+        render(ui.borrow(), &mut renderer, &mut ui_renderer);
     }
-    print!("leaving main_thread!");
+
+    renderer.shutdown();
 }
 
 fn render(
     ui: &Mutex<Ui>,
     renderer: &mut Renderer,
-    ui_renderer: &mut imgui_windows_d3d12_renderer::Renderer,    
+    ui_renderer: &mut imgui_windows_d3d12_renderer::Renderer,
 ) {
     renderer.start_new_frame();
 
@@ -131,6 +131,8 @@ fn render(
         let mut ui = ui.lock().unwrap();
         let imgui = ui.new_frame(ui_renderer);
         imgui.show_demo_window(&mut true);
+
+        imgui.text("Hello world");
 
         ui.render(ui_renderer, &cl);
     }

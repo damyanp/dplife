@@ -22,9 +22,7 @@ pub struct Ui {
 unsafe impl Send for Ui {}
 
 impl Ui {
-    pub fn new(
-        window: &Window,
-    ) -> Mutex<Self> {
+    pub fn new(window: &Window) -> Mutex<Self> {
         let mut imgui = imgui::Context::create();
         let mut winit_platform = WinitPlatform::init(&mut imgui);
 
