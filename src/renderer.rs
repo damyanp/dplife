@@ -1,7 +1,7 @@
 use array_init::array_init;
 use d3dx12::*;
 use windows::{
-    core::Interface,
+    core::{Interface, HSTRING},
     Win32::{
         Foundation::{HANDLE, HWND, RECT},
         Graphics::{
@@ -12,8 +12,8 @@ use windows::{
         System::Threading::{CreateEventA, WaitForSingleObject, INFINITE},
     },
 };
-use winit::window::Window;
 use winit::platform::windows::WindowExtWindows;
+use winit::window::Window;
 
 pub struct Renderer {
     pub device: ID3D12Device,
@@ -163,6 +163,9 @@ impl SwapChain {
                     None,
                     rtv_heap.get_cpu_descriptor_handle(i),
                 );
+                render_target
+                    .SetName(&HSTRING::from(format!("RenderTarget {}", i)))
+                    .unwrap();
                 render_target
             });
 

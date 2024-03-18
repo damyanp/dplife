@@ -22,3 +22,9 @@ features = [
     "Win32_Graphics_Dxgi_Common",
     "Win32_Graphics_Dxgi",
 ]
+
+# Uncomment this if making changes to these crates locally
+
+# [patch.crates-io]
+# imgui-windows-d3d12-renderer = { path = "../imgui-windows-d3d12-renderer" }
+

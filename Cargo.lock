@@ -487,9 +487,9 @@ dependencies = [
 
 [[package]]
 name = "imgui-windows-d3d12-renderer"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9143d5efbcbc0d36c45be56830d343f8ae2c53d965658bc0c543e263bb96fcc1"
+checksum = "8ab9c50426781289b44227e26816be3ffe3f3747b48b82b60f8a2f875fcd47ff"
 dependencies = [
  "imgui",
  "offset",

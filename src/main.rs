@@ -11,9 +11,9 @@ use std::{
 use d3dx12::transition_barrier;
 use imgui_manager::ImguiManager;
 use renderer::Renderer;
-use windows::Win32::{
-    Graphics::Direct3D12::{D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET},
-};
+use windows::Win32::
+    Graphics::Direct3D12::{D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET}
+;
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -81,15 +81,16 @@ impl UI {
         }
 
         if !imgui.io().want_capture_mouse {
-            imgui.text(format!("Click: {:?} {:?}", imgui.io().mouse_pos, imgui.io().want_capture_mouse));
+            imgui.text(format!(
+                "Click: {:?} {:?}",
+                imgui.io().mouse_pos,
+                imgui.io().want_capture_mouse
+            ));
         }
     }
 }
 
-fn main_thread(
-    rx: Receiver<ThreadMessage>,
-    imgui_manager: Arc<Mutex<ImguiManager>>,
-) {
+fn main_thread(rx: Receiver<ThreadMessage>, imgui_manager: Arc<Mutex<ImguiManager>>) {
     let mut im = imgui_manager.lock().unwrap();
 
     let mut renderer = Renderer::new(&im.window.lock().unwrap());
