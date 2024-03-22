@@ -11,9 +11,9 @@ use std::{
 use d3dx12::transition_barrier;
 use imgui_manager::ImguiManager;
 use renderer::Renderer;
-use windows::Win32::
-    Graphics::Direct3D12::{D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET}
-;
+use windows::Win32::Graphics::Direct3D12::{
+    D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET,
+};
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -64,12 +64,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             Event::RedrawRequested(_) => (),
             _ => (),
         }
-    });    
+    });
 }
 
 #[derive(Default)]
 struct UI {
     demo_window: bool,
+
+    drag_start: Option<[f32; 2]>,
 }
 
 impl UI {
@@ -86,6 +88,20 @@ impl UI {
                 imgui.io().mouse_pos,
                 imgui.io().want_capture_mouse
             ));
+
+            if imgui.io().mouse_down[0] {
+                if self.drag_start.is_none() {
+                    self.drag_start = Some(imgui.io().mouse_pos);
+                }
+
+                if let Some(drag_start) = &self.drag_start {
+                    imgui.text(format!(
+                        "Drag {:?} -> {:?}",
+                        drag_start,
+                        imgui.io().mouse_pos
+                    ));
+                }
+            }
         }
     }
 }
