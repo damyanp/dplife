@@ -23,6 +23,9 @@ features = [
     "Win32_Graphics_Dxgi",
 ]
 
+[build-dependencies]
+d3dx12 = { path = "d3dx12" }
+
 # Uncomment this if making changes to these crates locally
 
 # [patch.crates-io]

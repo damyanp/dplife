@@ -9,6 +9,7 @@ use std::{
 };
 
 use d3dx12::transition_barrier;
+use imgui::Condition::Always;
 use imgui_manager::ImguiManager;
 use renderer::Renderer;
 use windows::Win32::Graphics::Direct3D12::{
@@ -76,33 +77,39 @@ struct UI {
 
 impl UI {
     pub fn render(&mut self, imgui: &mut imgui::Ui) {
-        imgui.checkbox("Demo", &mut self.demo_window);
+        imgui
+            .window("dplife")
+            .position([5.0, 5.0], Always)
+            .collapsed(true, imgui::Condition::Once)            
+            .build(|| {
+                imgui.checkbox("Demo", &mut self.demo_window);
 
-        if self.demo_window {
-            imgui.show_demo_window(&mut self.demo_window);
-        }
-
-        if !imgui.io().want_capture_mouse {
-            imgui.text(format!(
-                "Click: {:?} {:?}",
-                imgui.io().mouse_pos,
-                imgui.io().want_capture_mouse
-            ));
-
-            if imgui.io().mouse_down[0] {
-                if self.drag_start.is_none() {
-                    self.drag_start = Some(imgui.io().mouse_pos);
+                if self.demo_window {
+                    imgui.show_demo_window(&mut self.demo_window);
                 }
 
-                if let Some(drag_start) = &self.drag_start {
+                if !imgui.io().want_capture_mouse {
                     imgui.text(format!(
-                        "Drag {:?} -> {:?}",
-                        drag_start,
-                        imgui.io().mouse_pos
+                        "Click: {:?} {:?}",
+                        imgui.io().mouse_pos,
+                        imgui.io().want_capture_mouse
                     ));
+
+                    if imgui.io().mouse_down[0] {
+                        if self.drag_start.is_none() {
+                            self.drag_start = Some(imgui.io().mouse_pos);
+                        }
+
+                        if let Some(drag_start) = &self.drag_start {
+                            imgui.text(format!(
+                                "Drag {:?} -> {:?}",
+                                drag_start,
+                                imgui.io().mouse_pos
+                            ));
+                        }
+                    }
                 }
-            }
-        }
+            });
     }
 }
 
@@ -118,6 +125,8 @@ fn main_thread(rx: Receiver<ThreadMessage>, imgui_manager: Arc<Mutex<ImguiManage
     drop(im);
 
     let mut ui = UI::default();
+
+    let mut _points_renderer = renderer.new_points_renderer();
 
     'mainloop: loop {
         #[allow(clippy::never_loop)]

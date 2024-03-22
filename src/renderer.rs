@@ -15,6 +15,8 @@ use windows::{
 use winit::platform::windows::WindowExtWindows;
 use winit::window::Window;
 
+mod points;
+
 pub struct Renderer {
     pub device: ID3D12Device,
     command_queue: ID3D12CommandQueue,
@@ -129,6 +131,10 @@ impl Renderer {
         // This will force all in-flight frames to complete.
         let frame_manager = self.frame_manager.take();
         drop(frame_manager);
+    }
+    
+    pub fn new_points_renderer(&self) -> points::PointsRenderer {
+        points::PointsRenderer::new(&self.device)
     }
 }
 
