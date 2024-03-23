@@ -1,15 +1,34 @@
+use std::ffi::c_void;
+
 use windows::Win32::Graphics::{Direct3D::ID3DBlob, Direct3D12::*};
 
-pub trait ShaderBytecode {
-    fn from_blob(blob: &ID3DBlob) -> Self;
+pub struct ShaderBytecode(D3D12_SHADER_BYTECODE);
+
+impl From<&ID3DBlob> for ShaderBytecode {
+    fn from(value: &ID3DBlob) -> Self {
+        ShaderBytecode {
+            0: D3D12_SHADER_BYTECODE {
+                pShaderBytecode: unsafe { value.GetBufferPointer() },
+                BytecodeLength: unsafe { value.GetBufferSize() },
+            },
+        }
+    }
 }
 
-impl ShaderBytecode for D3D12_SHADER_BYTECODE {
-    fn from_blob(blob: &ID3DBlob) -> Self {
-        D3D12_SHADER_BYTECODE {
-            pShaderBytecode: unsafe { blob.GetBufferPointer() },
-            BytecodeLength: unsafe { blob.GetBufferSize() },
+impl From<&[u8]> for ShaderBytecode {
+    fn from(value: &[u8]) -> Self {
+        ShaderBytecode {
+            0: D3D12_SHADER_BYTECODE {
+                pShaderBytecode: value.as_ptr() as *const c_void,
+                BytecodeLength: value.len(),
+            },
         }
+    }
+}
+
+impl Into<D3D12_SHADER_BYTECODE> for ShaderBytecode {
+    fn into(self) -> D3D12_SHADER_BYTECODE {
+        self.0
     }
 }
 

@@ -134,7 +134,7 @@ impl Renderer {
     }
     
     pub fn new_points_renderer(&self) -> points::PointsRenderer {
-        points::PointsRenderer::new(&self.device)
+        points::PointsRenderer::new(&self.device, DXGI_FORMAT_R8G8B8A8_UNORM)
     }
 }
 

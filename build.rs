@@ -13,4 +13,10 @@ fn main() {
         "ps_6_0",
         "ps_main",
     );
+    dxc_compile(
+        "src/renderer/points_renderer.hlsl",
+        "points_renderer.root_signature",
+        "rootsig_1_0",
+        "ROOT_SIGNATURE",
+    );
 }

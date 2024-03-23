@@ -33,6 +33,5 @@ fn install_nuget() {
 
     println!("cargo::rerun-if-changed=packages.config");
     println!("cargo::rerun-if-changed=build.rs");
-    println!("cargo::rerun-if-changed=hlsl.rs");
 }
 
