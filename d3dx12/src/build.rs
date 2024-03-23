@@ -16,7 +16,7 @@ pub fn copy_data_file(source_path: &str) {
     copy(source_path, dest).expect("Copy");
 }
 
-pub fn dxc<P: AsRef<Path>>(source_path: P) -> Command {
+pub fn dxc_command<P: AsRef<Path>>(source_path: P) -> Command {
     println!(
         "!cargo::rerun-if-changed={}",
         source_path.as_ref().to_str().unwrap()
