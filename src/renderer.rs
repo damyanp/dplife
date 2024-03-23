@@ -15,7 +15,7 @@ use windows::{
 use winit::platform::windows::WindowExtWindows;
 use winit::window::Window;
 
-mod points;
+pub mod points;
 
 pub struct Renderer {
     pub device: ID3D12Device,
@@ -132,7 +132,7 @@ impl Renderer {
         let frame_manager = self.frame_manager.take();
         drop(frame_manager);
     }
-    
+
     pub fn new_points_renderer(&self) -> points::PointsRenderer {
         points::PointsRenderer::new(&self.device, DXGI_FORMAT_R8G8B8A8_UNORM)
     }

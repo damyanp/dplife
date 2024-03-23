@@ -1,3 +1,5 @@
+use std::{marker::PhantomData, mem::size_of};
+
 use windows::Win32::Graphics::{Direct3D12::*, Dxgi::Common::*};
 
 mod descriptor_heaps;
@@ -92,6 +94,53 @@ impl HeapProperties for D3D12_HEAP_PROPERTIES {
         D3D12_HEAP_PROPERTIES {
             Type: heap_type,
             ..HeapProperties::default()
+        }
+    }
+}
+
+pub struct Mapped<'a, T> {
+    resource: &'a ID3D12Resource,
+    mapped: *mut std::ffi::c_void,
+    element_count: usize,
+    mapped_type: PhantomData<T>,
+}
+
+impl<'a, T> Drop for Mapped<'a, T> {
+    fn drop(&mut self) {
+        unsafe {
+            self.resource.Unmap(0, None);
+        }
+    }
+}
+
+impl<'a, T> Mapped<'a, T> {
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        unsafe {
+            std::slice::from_raw_parts_mut(std::mem::transmute(self.mapped), self.element_count)
+        }
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        unsafe { std::slice::from_raw_parts(std::mem::transmute(self.mapped), self.element_count) }
+    }
+}
+
+pub trait Mappable {
+    fn map<'a, T>(&'a mut self) -> Mapped<'a, T>;
+}
+
+impl Mappable for ID3D12Resource {
+    fn map<'a, T>(&'a mut self) -> Mapped<'a, T> {
+        unsafe {
+            let mut mapped = std::ptr::null_mut();
+            self.Map(0, None, Some(&mut mapped)).unwrap();
+
+            Mapped {
+                resource: self,
+                mapped,
+                element_count: self.GetDesc().Width as usize / size_of::<T>(),
+                mapped_type: PhantomData,
+            }
         }
     }
 }

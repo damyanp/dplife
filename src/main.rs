@@ -1,3 +1,4 @@
+use array_init::array_init;
 use std::{
     borrow::Borrow,
     error::Error,
@@ -11,7 +12,11 @@ use std::{
 use d3dx12::transition_barrier;
 use imgui::Condition::Always;
 use imgui_manager::ImguiManager;
-use renderer::Renderer;
+use rand::{thread_rng, Rng};
+use renderer::{
+    points::{PointsRenderer, Vertex},
+    Renderer,
+};
 use windows::Win32::Graphics::Direct3D12::{
     D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET,
 };
@@ -80,7 +85,7 @@ impl UI {
         imgui
             .window("dplife")
             .position([5.0, 5.0], Always)
-            .collapsed(true, imgui::Condition::Once)            
+            .collapsed(true, imgui::Condition::Once)
             .build(|| {
                 imgui.checkbox("Demo", &mut self.demo_window);
 
@@ -126,7 +131,7 @@ fn main_thread(rx: Receiver<ThreadMessage>, imgui_manager: Arc<Mutex<ImguiManage
 
     let mut ui = UI::default();
 
-    let mut _points_renderer = renderer.new_points_renderer();
+    let mut points_renderer = renderer.new_points_renderer();
 
     'mainloop: loop {
         #[allow(clippy::never_loop)]
@@ -141,6 +146,7 @@ fn main_thread(rx: Receiver<ThreadMessage>, imgui_manager: Arc<Mutex<ImguiManage
             &mut renderer,
             &mut ui_renderer,
             &mut ui,
+            &mut points_renderer,
         );
     }
 
@@ -152,6 +158,7 @@ fn render(
     renderer: &mut Renderer,
     ui_renderer: &mut imgui_windows_d3d12_renderer::Renderer,
     ui: &mut UI,
+    points_renderer: &mut PointsRenderer,
 ) {
     renderer.start_new_frame();
 
@@ -173,9 +180,19 @@ fn render(
         let rtv = renderer.get_rtv_handle();
 
         cl.OMSetRenderTargets(1, Some(&rtv), false, None);
-        cl.ClearRenderTargetView(rtv, &[0.0_f32, 0.2_f32, 0.4_f32, 1.0_f32], None);
+        cl.ClearRenderTargetView(rtv, &[0.0_f32, 0.0_f32, 0.0_f32, 1.0_f32], None);
         cl.SetDescriptorHeaps(&[Some(renderer.descriptor_heap.heap.clone())]);
     }
+
+    let mut rng = thread_rng();
+    let range = -1.0f32..1.0f32;
+
+    let verts: [Vertex; 1000] = array_init(|_| Vertex {
+        position: [rng.gen_range(range.clone()), rng.gen_range(range.clone())],
+        color: rng.gen_range(0..u32::MAX),
+    });
+
+    points_renderer.render(&cl, &verts);
 
     // Prepare UI
     {
