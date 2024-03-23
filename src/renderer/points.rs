@@ -24,6 +24,10 @@ impl PointsRenderer {
         device: &ID3D12Device,
         rs: &ID3D12RootSignature,
     ) -> ID3D12PipelineState {
+
+        let vs_dxil = include_bytes!(concat!(env!("OUT_DIR"), "/points_renderer.vs.dxil"));
+        let ps_dxil = include_bytes!(concat!(env!("OUT_DIR"), "/points_renderer.ps.dxil"));
+
         unreachable!()
     }
 }
