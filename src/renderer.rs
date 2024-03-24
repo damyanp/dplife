@@ -98,10 +98,16 @@ impl Renderer {
     }
 
     pub fn new_command_list(&mut self) -> ID3D12GraphicsCommandList {
-        self.frame_manager
+        let cl = self.frame_manager
             .as_mut()
             .unwrap()
-            .new_command_list(&self.device)
+            .new_command_list(&self.device);
+
+        unsafe {
+            cl.SetDescriptorHeaps(&[Some(self.descriptor_heap.heap.clone())]);
+        }
+
+        cl
     }
 
     pub fn set_viewports_and_scissors(&self, cl: &ID3D12GraphicsCommandList) {

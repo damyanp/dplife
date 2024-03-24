@@ -179,7 +179,6 @@ impl App {
 
             cl.OMSetRenderTargets(1, Some(&rtv), false, None);
             cl.ClearRenderTargetView(rtv, &[0.0_f32, 0.0_f32, 0.0_f32, 1.0_f32], None);
-            cl.SetDescriptorHeaps(&[Some(self.renderer.descriptor_heap.heap.clone())]);
         }
 
         self.points_renderer.render(&self.camera, &cl, &self.verts);
