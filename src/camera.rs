@@ -37,6 +37,10 @@ impl Camera {
     }
 
     pub fn update(&mut self, io: &imgui::Io) {
+        if io.want_capture_mouse {
+            return;
+        }
+
         let mouse_pos = self.window_to_view(Point::from_slice(&io.mouse_pos));
 
         if io[imgui::MouseButton::Middle] {
