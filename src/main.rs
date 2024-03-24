@@ -13,7 +13,7 @@ use d3dx12::transition_barrier;
 use imgui::Condition::Always;
 use imgui_manager::ImguiManager;
 use rand::{thread_rng, Rng};
-use renderer::{points::Vertex, Renderer};
+use renderer::{points::{PointsRenderer, Vertex}, Renderer};
 use windows::Win32::Graphics::Direct3D12::{
     D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET,
 };
@@ -42,13 +42,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let window = builder.build(&event_loop)?;
 
+    let renderer = Renderer::new(&window);
+
     let (tx, rx) = mpsc::channel();
 
     let imgui_manager = Arc::new(ImguiManager::new(window));
     let imgui_manager_for_main_thread = imgui_manager.clone();
 
     let mut main_thread = Some(thread::spawn(move || {
-        main_thread(rx, imgui_manager_for_main_thread)
+        main_thread(rx, renderer, imgui_manager_for_main_thread)
     }));
 
     event_loop.run(move |event, _, control_flow| {
@@ -71,13 +73,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 }
 
-#[derive(Default)]
-struct UI {
+struct RenderedUI {
+    imgui_manager: Arc<Mutex<ImguiManager>>,
+    imgui_renderer: imgui_windows_d3d12_renderer::Renderer,
+}
+
+struct UIState {
     demo_window: bool,
 }
 
-impl UI {
-    pub fn render(&mut self, imgui: &mut imgui::Ui) {
+impl UIState {
+    fn render(&mut self, imgui: &mut imgui::Ui) {
         imgui
             .window("dplife")
             .position([5.0, 5.0], Always)
@@ -92,43 +98,71 @@ impl UI {
     }
 }
 
-fn main_thread(rx: Receiver<ThreadMessage>, imgui_manager: Arc<Mutex<ImguiManager>>) {
-    let mut im = imgui_manager.lock().unwrap();
+struct App {
+    renderer: Renderer,
+    points_renderer: PointsRenderer,
+    camera: Camera,
 
-    let mut renderer = Renderer::new(&im.window.lock().unwrap());
-    let mut ui_renderer = im.new_renderer(
-        &renderer.device,
-        renderer.descriptor_heap.get_descriptor_handles(0),
-    );
+    rendered_ui: RenderedUI,
+    ui_state: UIState,
 
-    drop(im);
+    verts: [Vertex; 1000],
+}
 
-    let mut ui = UI::default();
+impl Drop for App {
+    fn drop(&mut self) {
+        self.renderer.shutdown();
+    }
+}
 
-    let mut camera = Camera::new(renderer.get_viewport().clone());
-    let mut points_renderer = renderer.new_points_renderer();
+impl App {
+    fn new(renderer: Renderer, imgui_manager: Arc<Mutex<ImguiManager>>) -> Self {
 
-    let mut rng = thread_rng();
-    let range = 0.0_f32..1024.0_f32;
+        let mut im = imgui_manager.lock().unwrap();
 
-    let verts: [Vertex; 1000] = array_init(|_| Vertex {
-        position: [rng.gen_range(range.clone()), rng.gen_range(range.clone())],
-        color: rng.gen_range(0..u32::MAX),
-    });
-
-    'mainloop: loop {
-        #[allow(clippy::never_loop)]
-        for message in rx.try_iter() {
-            match message {
-                ThreadMessage::Quit => break 'mainloop,
-            }
+        let imgui_renderer = im.new_renderer(
+            &renderer.device,
+            renderer.descriptor_heap.get_descriptor_handles(0),
+        );
+    
+        drop(im);
+    
+        let rendered_ui = RenderedUI {
+            imgui_manager,
+            imgui_renderer,
+        };
+        let ui_state = UIState { demo_window: false };
+    
+        let camera = Camera::new(renderer.get_viewport().clone());
+        let points_renderer = renderer.new_points_renderer();
+    
+        let mut rng = thread_rng();
+        let range = 0.0_f32..1024.0_f32;
+    
+        let verts: [Vertex; 1000] = array_init(|_| Vertex {
+            position: [rng.gen_range(range.clone()), rng.gen_range(range.clone())],
+            color: rng.gen_range(0..u32::MAX),
+        });
+    
+        App {
+            renderer,
+            points_renderer,
+            camera,
+            rendered_ui,
+            ui_state,
+            verts,
         }
+    }
 
-        renderer.start_new_frame();
+    fn update(&mut self) {
+    }
 
-        let render_target = renderer.get_render_target().clone();
+    fn render(&mut self) {
+        self.renderer.start_new_frame();
 
-        let cl = renderer.new_command_list();
+        let render_target = self.renderer.get_render_target().clone();
+
+        let cl = self.renderer.new_command_list();
 
         unsafe {
             cl.ResourceBarrier(&[transition_barrier(
@@ -138,29 +172,29 @@ fn main_thread(rx: Receiver<ThreadMessage>, imgui_manager: Arc<Mutex<ImguiManage
             )]);
         }
 
-        renderer.set_viewports_and_scissors(&cl);
+        self.renderer.set_viewports_and_scissors(&cl);
 
         unsafe {
-            let rtv = renderer.get_rtv_handle();
+            let rtv = self.renderer.get_rtv_handle();
 
             cl.OMSetRenderTargets(1, Some(&rtv), false, None);
             cl.ClearRenderTargetView(rtv, &[0.0_f32, 0.0_f32, 0.0_f32, 1.0_f32], None);
-            cl.SetDescriptorHeaps(&[Some(renderer.descriptor_heap.heap.clone())]);
+            cl.SetDescriptorHeaps(&[Some(self.renderer.descriptor_heap.heap.clone())]);
         }
 
-        points_renderer.render(&camera, &cl, &verts);
+        self.points_renderer.render(&self.camera, &cl, &self.verts);
 
         // Prepare UI
         {
-            let mut imgui_manager = imgui_manager.lock().unwrap();
+            let mut imgui_manager = self.rendered_ui.imgui_manager.lock().unwrap();
 
-            let imgui = imgui_manager.new_frame(&mut ui_renderer);
+            let imgui = imgui_manager.new_frame(&mut self.rendered_ui.imgui_renderer);
 
-            ui.render(imgui);
+            self.ui_state.render(imgui);
 
-            camera.update(imgui.io());
+            self.camera.update(imgui.io());
 
-            imgui_manager.render(&mut ui_renderer, &cl);
+            imgui_manager.render(&mut self.rendered_ui.imgui_renderer, &cl);
         }
 
         unsafe {
@@ -173,10 +207,29 @@ fn main_thread(rx: Receiver<ThreadMessage>, imgui_manager: Arc<Mutex<ImguiManage
             cl.Close().unwrap();
         }
 
-        renderer.execute_command_lists(ecl![cl]);
-        renderer.present();
-        renderer.end_frame();
+        self.renderer.execute_command_lists(ecl![cl]);
+        self.renderer.present();
+        self.renderer.end_frame();
     }
+}
 
-    renderer.shutdown();
+fn main_thread(
+    rx: Receiver<ThreadMessage>,
+    renderer: Renderer,
+    imgui_manager: Arc<Mutex<ImguiManager>>,
+) {
+    let mut app = App::new(renderer, imgui_manager);
+
+    'mainloop: loop {
+        #[allow(clippy::never_loop)]
+        for message in rx.try_iter() {
+            match message {
+                ThreadMessage::Quit => break 'mainloop,
+            }
+        }
+
+        app.update();
+        app.render();
+
+    }
 }
