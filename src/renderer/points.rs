@@ -10,7 +10,7 @@ use windows::{
             ID3D12RootSignature, D3D12_GRAPHICS_PIPELINE_STATE_DESC, D3D12_HEAP_FLAG_NONE,
             D3D12_HEAP_TYPE_UPLOAD, D3D12_INPUT_ELEMENT_DESC, D3D12_INPUT_LAYOUT_DESC,
             D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
-            D3D12_VERTEX_BUFFER_VIEW, D3D12_VIEWPORT,
+            D3D12_VERTEX_BUFFER_VIEW,
         },
         Dxgi::Common::{
             DXGI_FORMAT, DXGI_FORMAT_R32G32_FLOAT, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_SAMPLE_DESC,
@@ -19,6 +19,8 @@ use windows::{
 };
 
 use d3dx12::{BlendDesc, HeapProperties, Mappable, RasterizerDesc, ResourceDesc, ShaderBytecode};
+
+use crate::camera::Camera;
 
 pub struct PointsRenderer {
     rs: ID3D12RootSignature,
@@ -132,7 +134,7 @@ impl PointsRenderer {
 // PointsRenderer: render
 //
 impl PointsRenderer {
-    pub fn render(&mut self, cl: &ID3D12GraphicsCommandList, vertices: &[Vertex]) {
+    pub fn render(&mut self, camera: &Camera, cl: &ID3D12GraphicsCommandList, vertices: &[Vertex]) {
         let vertex_buffer = &mut self.vertex_buffers[self.buffer_index];
 
         let mut mapped = vertex_buffer.map();
@@ -153,13 +155,7 @@ impl PointsRenderer {
             cl.IASetVertexBuffers(0, Some(&[vbv]));
             cl.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
 
-            #[rustfmt::skip]
-            let constant_buffer : [f32; 16] = [
-                1.0, 0.0, 0.0, 0.0,
-                0.0, 1.0, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                0.0, 0.0, 0.0, 1.0
-            ];
+            let constant_buffer = camera.get_matrix().into_col_array();
 
             cl.SetGraphicsRoot32BitConstants(
                 0,
@@ -167,16 +163,6 @@ impl PointsRenderer {
                 std::ptr::addr_of!(constant_buffer) as *const c_void,
                 0,
             );
-
-            let vp = D3D12_VIEWPORT {
-                Width: 1024.0f32,
-                Height: 768.0f32,
-                MinDepth: 0.0,
-                MaxDepth: 1.0,
-                ..Default::default()
-            };
-
-            cl.RSSetViewports(&[vp]);
 
             cl.DrawInstanced(vertices.len() as u32, 1, 0, 0);
         }

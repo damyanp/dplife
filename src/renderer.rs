@@ -108,6 +108,11 @@ impl Renderer {
         self.swap_chain.set_viewports_and_scissors(cl);
     }
 
+    pub fn get_viewport(&self) -> &D3D12_VIEWPORT {
+        self.swap_chain.get_viewport()
+    }
+
+
     pub fn get_render_target(&self) -> &ID3D12Resource {
         self.swap_chain.get_render_target()
     }
@@ -136,7 +141,7 @@ impl Renderer {
     pub fn new_points_renderer(&self) -> points::PointsRenderer {
         points::PointsRenderer::new(&self.device, DXGI_FORMAT_R8G8B8A8_UNORM)
     }
-}
+    }
 
 #[macro_export]
 macro_rules! ecl {
@@ -208,6 +213,10 @@ impl SwapChain {
         }
     }
 
+    fn get_viewport(&self) -> &D3D12_VIEWPORT {
+        &self.viewport
+    }
+
     fn get_render_target(&self) -> &ID3D12Resource {
         unsafe { &self.render_targets[self.swap_chain.GetCurrentBackBufferIndex() as usize] }
     }
@@ -224,7 +233,7 @@ impl SwapChain {
             self.swap_chain.Present(1, 0).unwrap();
         }
     }
-}
+    }
 
 impl FrameManager {
     unsafe fn new(device: &ID3D12Device) -> Self {

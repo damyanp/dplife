@@ -1,6 +1,6 @@
 use array_init::array_init;
+use camera::Camera;
 use std::{
-    borrow::Borrow,
     error::Error,
     sync::{
         mpsc::{self, Receiver},
@@ -14,7 +14,7 @@ use imgui::Condition::Always;
 use imgui_manager::ImguiManager;
 use rand::{thread_rng, Rng};
 use renderer::{
-    points::{PointsRenderer, Vertex},
+    points::Vertex,
     Renderer,
 };
 use windows::Win32::Graphics::Direct3D12::{
@@ -27,6 +27,7 @@ use winit::{
     window::WindowBuilder,
 };
 
+mod camera;
 mod imgui_manager;
 mod renderer;
 
@@ -93,6 +94,8 @@ impl UI {
                     imgui.show_demo_window(&mut self.demo_window);
                 }
 
+                imgui.text(format!("wheel: {:?}", imgui.io().mouse_wheel));
+
                 if !imgui.io().want_capture_mouse {
                     imgui.text(format!(
                         "Click: {:?} {:?}",
@@ -131,7 +134,18 @@ fn main_thread(rx: Receiver<ThreadMessage>, imgui_manager: Arc<Mutex<ImguiManage
 
     let mut ui = UI::default();
 
+    let mut camera = Camera::new(renderer.get_viewport().clone());
     let mut points_renderer = renderer.new_points_renderer();
+
+    let mut rng = thread_rng();
+    let range = 0.0_f32..1024.0_f32;
+
+    let verts: [Vertex; 1000] = array_init(|_| Vertex {
+        position: [rng.gen_range(range.clone()), rng.gen_range(range.clone())],
+        color: rng.gen_range(0..u32::MAX),
+    });
+
+
 
     'mainloop: loop {
         #[allow(clippy::never_loop)]
@@ -141,79 +155,59 @@ fn main_thread(rx: Receiver<ThreadMessage>, imgui_manager: Arc<Mutex<ImguiManage
             }
         }
 
-        render(
-            imgui_manager.borrow(),
-            &mut renderer,
-            &mut ui_renderer,
-            &mut ui,
-            &mut points_renderer,
-        );
+        renderer.start_new_frame();
+
+        let render_target = renderer.get_render_target().clone();
+
+        let cl = renderer.new_command_list();
+
+        unsafe {
+            cl.ResourceBarrier(&[transition_barrier(
+                &render_target,
+                D3D12_RESOURCE_STATE_PRESENT,
+                D3D12_RESOURCE_STATE_RENDER_TARGET,
+            )]);
+        }
+
+        renderer.set_viewports_and_scissors(&cl);
+
+        unsafe {
+            let rtv = renderer.get_rtv_handle();
+
+            cl.OMSetRenderTargets(1, Some(&rtv), false, None);
+            cl.ClearRenderTargetView(rtv, &[0.0_f32, 0.0_f32, 0.0_f32, 1.0_f32], None);
+            cl.SetDescriptorHeaps(&[Some(renderer.descriptor_heap.heap.clone())]);
+        }
+
+        points_renderer.render(&camera, &cl, &verts);
+
+        // Prepare UI
+        {
+            let mut imgui_manager = imgui_manager.lock().unwrap();
+
+            let imgui = imgui_manager.new_frame(&mut ui_renderer);
+
+            ui.render(imgui);
+
+            camera.update(imgui);
+
+            imgui_manager.render(&mut ui_renderer, &cl);
+        }
+
+        unsafe {
+            cl.ResourceBarrier(&[transition_barrier(
+                &render_target,
+                D3D12_RESOURCE_STATE_RENDER_TARGET,
+                D3D12_RESOURCE_STATE_PRESENT,
+            )]);
+
+            cl.Close().unwrap();
+        }
+
+        renderer.execute_command_lists(ecl![cl]);
+        renderer.present();
+        renderer.end_frame();
     }
 
     renderer.shutdown();
-}
-
-fn render(
-    imgui_manager: &Mutex<ImguiManager>,
-    renderer: &mut Renderer,
-    ui_renderer: &mut imgui_windows_d3d12_renderer::Renderer,
-    ui: &mut UI,
-    points_renderer: &mut PointsRenderer,
-) {
-    renderer.start_new_frame();
-
-    let render_target = renderer.get_render_target().clone();
-
-    let cl = renderer.new_command_list();
-
-    unsafe {
-        cl.ResourceBarrier(&[transition_barrier(
-            &render_target,
-            D3D12_RESOURCE_STATE_PRESENT,
-            D3D12_RESOURCE_STATE_RENDER_TARGET,
-        )]);
-    }
-
-    renderer.set_viewports_and_scissors(&cl);
-
-    unsafe {
-        let rtv = renderer.get_rtv_handle();
-
-        cl.OMSetRenderTargets(1, Some(&rtv), false, None);
-        cl.ClearRenderTargetView(rtv, &[0.0_f32, 0.0_f32, 0.0_f32, 1.0_f32], None);
-        cl.SetDescriptorHeaps(&[Some(renderer.descriptor_heap.heap.clone())]);
-    }
-
-    let mut rng = thread_rng();
-    let range = -1.0f32..1.0f32;
-
-    let verts: [Vertex; 1000] = array_init(|_| Vertex {
-        position: [rng.gen_range(range.clone()), rng.gen_range(range.clone())],
-        color: rng.gen_range(0..u32::MAX),
-    });
-
-    points_renderer.render(&cl, &verts);
-
-    // Prepare UI
-    {
-        let mut imgui_manager = imgui_manager.lock().unwrap();
-
-        ui.render(imgui_manager.new_frame(ui_renderer));
-
-        imgui_manager.render(ui_renderer, &cl);
-    }
-
-    unsafe {
-        cl.ResourceBarrier(&[transition_barrier(
-            &render_target,
-            D3D12_RESOURCE_STATE_RENDER_TARGET,
-            D3D12_RESOURCE_STATE_PRESENT,
-        )]);
-
-        cl.Close().unwrap();
-    }
-
-    renderer.execute_command_lists(ecl![cl]);
-    renderer.present();
-    renderer.end_frame();
 }
