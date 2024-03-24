@@ -1,5 +1,8 @@
 use vek::{num_traits::Zero, Mat4, Vec2};
 use windows::Win32::Graphics::Direct3D12::D3D12_VIEWPORT;
+use winit::event::ElementState;
+
+use crate::Mouse;
 
 type Point = Vec2<f32>;
 
@@ -36,14 +39,10 @@ impl Camera {
         }
     }
 
-    pub fn update(&mut self, io: &imgui::Io) {
-        if io.want_capture_mouse {
-            return;
-        }
+    pub fn update(&mut self, mouse: &Mouse) {
+        let mouse_pos = self.window_to_view(mouse.position);
 
-        let mouse_pos = self.window_to_view(Point::from_slice(&io.mouse_pos));
-
-        if io[imgui::MouseButton::Middle] {
+        if mouse.middle_button == ElementState::Pressed {
             if let Some(move_operation) = &self.move_operation {
                 let delta = mouse_pos - move_operation.mouse_start;
                 self.pos = move_operation.pos_start + delta / self.scale;
@@ -59,8 +58,8 @@ impl Camera {
 
         let world_mouse_pos = self.view_to_world(mouse_pos);
 
-        if !io.mouse_wheel.is_zero() {
-            self.zoom += io.mouse_wheel / 10.0;
+        if !mouse.wheel.is_zero() {
+            self.zoom += mouse.wheel / 10.0;
 
             // When zoom is < -11 things go bad. Needs debugging fully. Maybe
             // precision problems for really small numbers?

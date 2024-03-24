@@ -174,7 +174,9 @@ impl App {
         self.mouse.start_tick();
     }
 
-    fn update(&mut self) {}
+    fn update(&mut self) {
+        self.camera.update(&self.mouse);
+    }
 
     fn render(&mut self) {
         self.renderer.start_new_frame();
@@ -212,8 +214,6 @@ impl App {
 
             self.mouse.draw_ui(imgui);
 
-            self.camera.update(imgui.io());
-
             imgui_manager.render(&mut self.rendered_ui.imgui_renderer, &cl);
         }
 
@@ -248,7 +248,7 @@ struct Mouse {
     left_button: ElementState,
     right_button: ElementState,
     middle_button: ElementState,
-    wheel: MouseScrollDelta,
+    wheel: f32,
 }
 
 impl Mouse {
@@ -258,12 +258,12 @@ impl Mouse {
             left_button: ElementState::Released,
             right_button: ElementState::Released,
             middle_button: ElementState::Released,
-            wheel: MouseScrollDelta::LineDelta(0.0, 0.0),
+            wheel: 0.0,
         }
     }
 
     fn start_tick(&mut self) {
-        self.wheel = MouseScrollDelta::LineDelta(0.0, 0.0);
+        self.wheel = 0.0;
     }
 
     fn handle_event(&mut self, window_event: WindowEvent<'_>) {
@@ -282,12 +282,10 @@ impl Mouse {
                 }
             }
             WindowEvent::MouseWheel {
-                delta: MouseScrollDelta::LineDelta(_, new_y),
+                delta: MouseScrollDelta::LineDelta(_, delta_y),
                 ..
             } => {
-                if let MouseScrollDelta::LineDelta(_, old_y) = self.wheel {
-                    self.wheel = MouseScrollDelta::LineDelta(0.0, new_y + old_y);
-                }
+                self.wheel += delta_y;
             }
 
             _ => (),
