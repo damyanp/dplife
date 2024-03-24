@@ -13,10 +13,7 @@ use d3dx12::transition_barrier;
 use imgui::Condition::Always;
 use imgui_manager::ImguiManager;
 use rand::{thread_rng, Rng};
-use renderer::{
-    points::Vertex,
-    Renderer,
-};
+use renderer::{points::Vertex, Renderer};
 use windows::Win32::Graphics::Direct3D12::{
     D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET,
 };
@@ -77,8 +74,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 #[derive(Default)]
 struct UI {
     demo_window: bool,
-
-    drag_start: Option<[f32; 2]>,
 }
 
 impl UI {
@@ -92,30 +87,6 @@ impl UI {
 
                 if self.demo_window {
                     imgui.show_demo_window(&mut self.demo_window);
-                }
-
-                imgui.text(format!("wheel: {:?}", imgui.io().mouse_wheel));
-
-                if !imgui.io().want_capture_mouse {
-                    imgui.text(format!(
-                        "Click: {:?} {:?}",
-                        imgui.io().mouse_pos,
-                        imgui.io().want_capture_mouse
-                    ));
-
-                    if imgui.io().mouse_down[0] {
-                        if self.drag_start.is_none() {
-                            self.drag_start = Some(imgui.io().mouse_pos);
-                        }
-
-                        if let Some(drag_start) = &self.drag_start {
-                            imgui.text(format!(
-                                "Drag {:?} -> {:?}",
-                                drag_start,
-                                imgui.io().mouse_pos
-                            ));
-                        }
-                    }
                 }
             });
     }
@@ -144,8 +115,6 @@ fn main_thread(rx: Receiver<ThreadMessage>, imgui_manager: Arc<Mutex<ImguiManage
         position: [rng.gen_range(range.clone()), rng.gen_range(range.clone())],
         color: rng.gen_range(0..u32::MAX),
     });
-
-
 
     'mainloop: loop {
         #[allow(clippy::never_loop)]
