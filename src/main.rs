@@ -8,18 +8,22 @@ use std::{
     },
     thread,
 };
+use vek::Vec2;
 
 use d3dx12::transition_barrier;
 use imgui::Condition::Always;
 use imgui_manager::ImguiManager;
 use rand::{thread_rng, Rng};
-use renderer::{points::{PointsRenderer, Vertex}, Renderer};
+use renderer::{
+    points::{PointsRenderer, Vertex},
+    Renderer,
+};
 use windows::Win32::Graphics::Direct3D12::{
     D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET,
 };
 use winit::{
     dpi::LogicalSize,
-    event::{Event, WindowEvent},
+    event::{ElementState, Event, MouseScrollDelta, WindowEvent},
     event_loop::EventLoop,
     window::WindowBuilder,
 };
@@ -28,8 +32,9 @@ mod camera;
 mod imgui_manager;
 mod renderer;
 
-enum ThreadMessage {
+enum ThreadMessage<'a> {
     Quit,
+    Event(Event<'a, ()>),
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -54,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }));
 
     event_loop.run(move |event, _, control_flow| {
-        imgui_manager.lock().unwrap().handle_event(&event);
+        let pass_event_to_app = imgui_manager.lock().unwrap().handle_event(&event);
 
         match event {
             Event::WindowEvent {
@@ -70,6 +75,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             Event::RedrawRequested(_) => (),
             _ => (),
         }
+
+        if main_thread.is_some() && pass_event_to_app {
+            // event.to_static() consumes event, so we have to make this the
+            // last thing we do with it. See
+            // https://github.com/rust-windowing/winit/issues/1968.
+            if let Some(static_event) = event.to_static() {
+                tx.send(ThreadMessage::Event(static_event)).unwrap();
+            }
+        }
     });
 }
 
@@ -83,7 +97,7 @@ struct UIState {
 }
 
 impl UIState {
-    fn render(&mut self, imgui: &mut imgui::Ui) {
+    fn draw_ui(&mut self, imgui: &mut imgui::Ui) {
         imgui
             .window("dplife")
             .position([5.0, 5.0], Always)
@@ -107,6 +121,8 @@ struct App {
     ui_state: UIState,
 
     verts: [Vertex; 1000],
+
+    mouse: Mouse,
 }
 
 impl Drop for App {
@@ -117,33 +133,32 @@ impl Drop for App {
 
 impl App {
     fn new(renderer: Renderer, imgui_manager: Arc<Mutex<ImguiManager>>) -> Self {
-
         let mut im = imgui_manager.lock().unwrap();
 
         let imgui_renderer = im.new_renderer(
             &renderer.device,
             renderer.descriptor_heap.get_descriptor_handles(0),
         );
-    
+
         drop(im);
-    
+
         let rendered_ui = RenderedUI {
             imgui_manager,
             imgui_renderer,
         };
         let ui_state = UIState { demo_window: false };
-    
-        let camera = Camera::new(renderer.get_viewport().clone());
+
+        let camera = Camera::new(*renderer.get_viewport());
         let points_renderer = renderer.new_points_renderer();
-    
+
         let mut rng = thread_rng();
         let range = 0.0_f32..1024.0_f32;
-    
+
         let verts: [Vertex; 1000] = array_init(|_| Vertex {
             position: [rng.gen_range(range.clone()), rng.gen_range(range.clone())],
             color: rng.gen_range(0..u32::MAX),
         });
-    
+
         App {
             renderer,
             points_renderer,
@@ -151,11 +166,15 @@ impl App {
             rendered_ui,
             ui_state,
             verts,
+            mouse: Mouse::new(),
         }
     }
 
-    fn update(&mut self) {
+    fn start_tick(&mut self) {
+        self.mouse.start_tick();
     }
+
+    fn update(&mut self) {}
 
     fn render(&mut self) {
         self.renderer.start_new_frame();
@@ -189,7 +208,9 @@ impl App {
 
             let imgui = imgui_manager.new_frame(&mut self.rendered_ui.imgui_renderer);
 
-            self.ui_state.render(imgui);
+            self.ui_state.draw_ui(imgui);
+
+            self.mouse.draw_ui(imgui);
 
             self.camera.update(imgui.io());
 
@@ -210,25 +231,96 @@ impl App {
         self.renderer.present();
         self.renderer.end_frame();
     }
+
+    fn handle_event<T>(&mut self, event: Event<'_, T>) {
+        if let Event::WindowEvent {
+            event: window_event,
+            ..
+        } = event
+        {
+            self.mouse.handle_event(window_event);
+        }
+    }
+}
+
+struct Mouse {
+    position: Vec2<f32>,
+    left_button: ElementState,
+    right_button: ElementState,
+    middle_button: ElementState,
+    wheel: MouseScrollDelta,
+}
+
+impl Mouse {
+    fn new() -> Self {
+        Mouse {
+            position: Vec2::zero(),
+            left_button: ElementState::Released,
+            right_button: ElementState::Released,
+            middle_button: ElementState::Released,
+            wheel: MouseScrollDelta::LineDelta(0.0, 0.0),
+        }
+    }
+
+    fn start_tick(&mut self) {
+        self.wheel = MouseScrollDelta::LineDelta(0.0, 0.0);
+    }
+
+    fn handle_event(&mut self, window_event: WindowEvent<'_>) {
+        match window_event {
+            WindowEvent::CursorMoved { position, .. } => {
+                self.position = Vec2::from((position.x as f32, position.y as f32));
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                use winit::event::MouseButton::*;
+
+                match button {
+                    Left => self.left_button = state,
+                    Right => self.right_button = state,
+                    Middle => self.middle_button = state,
+                    _ => (),
+                }
+            }
+            WindowEvent::MouseWheel {
+                delta: MouseScrollDelta::LineDelta(_, new_y),
+                ..
+            } => {
+                if let MouseScrollDelta::LineDelta(_, old_y) = self.wheel {
+                    self.wheel = MouseScrollDelta::LineDelta(0.0, new_y + old_y);
+                }
+            }
+
+            _ => (),
+        }
+    }
+
+    fn draw_ui(&self, imgui: &mut imgui::Ui) {
+        imgui.text(format!(
+            "{:?} {:?} {:?} {:?} {:?}",
+            self.position, self.left_button, self.right_button, self.middle_button, self.wheel
+        ));
+    }
 }
 
 fn main_thread(
-    rx: Receiver<ThreadMessage>,
+    rx: Receiver<ThreadMessage<'_>>,
     renderer: Renderer,
     imgui_manager: Arc<Mutex<ImguiManager>>,
 ) {
     let mut app = App::new(renderer, imgui_manager);
 
     'mainloop: loop {
+        app.start_tick();
+
         #[allow(clippy::never_loop)]
         for message in rx.try_iter() {
             match message {
                 ThreadMessage::Quit => break 'mainloop,
+                ThreadMessage::Event(event) => app.handle_event(event),
             }
         }
 
         app.update();
         app.render();
-
     }
 }

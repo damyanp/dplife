@@ -64,13 +64,13 @@ impl Camera {
 
             // When zoom is < -11 things go bad. Needs debugging fully. Maybe
             // precision problems for really small numbers?
-            self.zoom = self.zoom.max(-11.0); // 
-            
+            self.zoom = self.zoom.max(-11.0); //
+
             self.scale = 2.0_f32.powf(self.zoom);
 
             let new_world_mouse_pos = self.view_to_world(mouse_pos);
 
-            let delta= new_world_mouse_pos - world_mouse_pos;
+            let delta = new_world_mouse_pos - world_mouse_pos;
 
             self.pos += delta;
         }
@@ -93,9 +93,8 @@ impl Camera {
         let bottom_right = top_left + Vec2::new(self.viewport.Width, self.viewport.Height);
         let center = (top_left + bottom_right) / 2.0;
         let window_pos = window_pos - center;
-        let window_pos = window_pos / Vec2::new(self.viewport.Width / 2.0, self.viewport.Height / 2.0);
 
-        window_pos
+        window_pos / Vec2::new(self.viewport.Width / 2.0, self.viewport.Height / 2.0)
     }
 
     pub fn view_to_world(&self, view_pos: Point) -> Point {

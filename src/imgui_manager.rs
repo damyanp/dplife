@@ -69,30 +69,53 @@ impl ImguiManager {
         .unwrap()
     }
 
-    pub fn handle_event(&mut self, event: &Event<'_, ()>) {
+    /// Handle events; returns true if the event should be passed on to the app,
+    /// false otherwise.
+    pub fn handle_event(&mut self, event: &Event<'_, ()>) -> bool {
+        let io = self.imgui.io_mut();
+
         match event {
             Event::NewEvents(_) => {
                 let now = Instant::now();
-                self.imgui
-                    .io_mut()
-                    .update_delta_time(now - self.last_frame_instant);
+                io.update_delta_time(now - self.last_frame_instant);
                 self.last_frame_instant = now;
             }
             Event::MainEventsCleared => {}
             Event::WindowEvent {
                 event: WindowEvent::Resized(_),
                 ..
-            } => self.winit_platform.handle_event(
-                self.imgui.io_mut(),
-                &self.window.lock().unwrap(),
-                event,
-            ),
+            } => self
+                .winit_platform
+                .handle_event(io, &self.window.lock().unwrap(), event),
 
-            event => self.winit_platform.handle_event(
-                self.imgui.io_mut(),
-                &self.window.lock().unwrap(),
-                event,
-            ),
+            event => self
+                .winit_platform
+                .handle_event(io, &self.window.lock().unwrap(), event),
+        }
+
+        // Return value is "true" if we should pass the event to the app, false
+        // otherwise.
+        // https://github.com/ocornut/imgui/blob/master/docs/FAQ.md#q-how-can-i-tell-whether-to-dispatch-mousekeyboard-to-dear-imgui-or-my-application
+
+        if let Event::WindowEvent {
+            event: window_event,
+            ..
+        } = event
+        {
+            match window_event {
+                WindowEvent::KeyboardInput { .. } | WindowEvent::ModifiersChanged(_) => {
+                    !io.want_capture_keyboard
+                }
+                WindowEvent::CursorMoved { .. }
+                | WindowEvent::CursorEntered { .. }
+                | WindowEvent::CursorLeft { .. }
+                | WindowEvent::MouseWheel { .. }
+                | WindowEvent::MouseInput { .. }
+                | WindowEvent::TouchpadPressure { .. } => !io.want_capture_mouse,
+                _ => true,
+            }
+        } else {
+            true
         }
     }
 
