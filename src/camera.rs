@@ -1,6 +1,4 @@
-use std::cmp::max;
-
-use vek::{num_traits::Zero, Mat4, Vec2, Vec3};
+use vek::{num_traits::Zero, Mat4, Vec2};
 use windows::Win32::Graphics::Direct3D12::D3D12_VIEWPORT;
 
 type Point = Vec2<f32>;
@@ -15,7 +13,6 @@ pub struct Camera {
 }
 
 struct MoveOperation {
-    inv_camera_start: Mat4<f32>,
     mouse_start: Point,
     pos_start: Point,
 }
@@ -39,9 +36,7 @@ impl Camera {
         }
     }
 
-    pub fn update(&mut self, imgui: &imgui::Ui) {
-        let io = imgui.io();
-
+    pub fn update(&mut self, io: &imgui::Io) {
         let mouse_pos = self.window_to_view(Point::from_slice(&io.mouse_pos));
 
         if io[imgui::MouseButton::Middle] {
@@ -50,7 +45,6 @@ impl Camera {
                 self.pos = move_operation.pos_start + delta / self.scale;
             } else {
                 self.move_operation = Some(MoveOperation {
-                    inv_camera_start: self.get_matrix().inverted_affine_transform(),
                     mouse_start: mouse_pos,
                     pos_start: self.pos,
                 });

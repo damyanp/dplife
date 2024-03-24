@@ -189,7 +189,7 @@ fn main_thread(rx: Receiver<ThreadMessage>, imgui_manager: Arc<Mutex<ImguiManage
 
             ui.render(imgui);
 
-            camera.update(imgui);
+            camera.update(imgui.io());
 
             imgui_manager.render(&mut ui_renderer, &cl);
         }

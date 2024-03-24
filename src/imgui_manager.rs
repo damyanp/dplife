@@ -69,10 +69,6 @@ impl ImguiManager {
         .unwrap()
     }
 
-    pub fn io(&self) -> &imgui::Io {
-        self.imgui.io()
-    }
-
     pub fn handle_event(&mut self, event: &Event<'_, ()>) {
         match event {
             Event::NewEvents(_) => {
