@@ -1,5 +1,6 @@
 use array_init::array_init;
 use camera::Camera;
+use particle_life::World;
 use std::{
     error::Error,
     sync::{
@@ -13,7 +14,7 @@ use vek::Vec2;
 use d3dx12::transition_barrier;
 use imgui::Condition::Always;
 use imgui_manager::ImguiManager;
-use rand::{thread_rng, Rng};
+
 use renderer::{
     points::{PointsRenderer, Vertex},
     Renderer,
@@ -30,6 +31,7 @@ use winit::{
 
 mod camera;
 mod imgui_manager;
+mod particle_life;
 mod renderer;
 
 enum ThreadMessage<'a> {
@@ -120,6 +122,9 @@ struct App {
     rendered_ui: RenderedUI,
     ui_state: UIState,
 
+    world: World,
+    world_rules: particle_life::Rules,
+
     verts: [Vertex; 1000],
 
     mouse: Mouse,
@@ -151,12 +156,11 @@ impl App {
         let camera = Camera::new(*renderer.get_viewport());
         let points_renderer = renderer.new_points_renderer();
 
-        let mut rng = thread_rng();
-        let range = 0.0_f32..1024.0_f32;
+        const NUM_PARTICLES: usize = 1000;
 
-        let verts: [Vertex; 1000] = array_init(|_| Vertex {
-            position: [rng.gen_range(range.clone()), rng.gen_range(range.clone())],
-            color: rng.gen_range(0..u32::MAX),
+        let verts: [Vertex; NUM_PARTICLES] = array_init(|_| Vertex {
+            position: [0.0, 0.0],
+            color: 0,
         });
 
         App {
@@ -165,6 +169,8 @@ impl App {
             camera,
             rendered_ui,
             ui_state,
+            world: World::new(NUM_PARTICLES),
+            world_rules: particle_life::Rules::new_random(),
             verts,
             mouse: Mouse::new(),
         }
@@ -176,6 +182,7 @@ impl App {
 
     fn update(&mut self) {
         self.camera.update(&self.mouse);
+        self.world.update(&self.world_rules, &mut self.verts);
     }
 
     fn render(&mut self) {
@@ -292,11 +299,11 @@ impl Mouse {
         }
     }
 
-    fn draw_ui(&self, imgui: &mut imgui::Ui) {
-        imgui.text(format!(
-            "{:?} {:?} {:?} {:?} {:?}",
-            self.position, self.left_button, self.right_button, self.middle_button, self.wheel
-        ));
+    fn draw_ui(&self, _imgui: &mut imgui::Ui) {
+        // _imgui.text(format!(
+        //     "{:?} {:?} {:?} {:?} {:?}",
+        //     self.position, self.left_button, self.right_button, self.middle_button, self.wheel
+        // ));
     }
 }
 
