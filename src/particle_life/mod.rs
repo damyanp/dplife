@@ -101,7 +101,8 @@ impl Particle {
     }
 
     fn update(&mut self, vertex: &mut Vertex) {
-        self.velocity += self.force;
+        self.velocity += self.force * 0.05;
+        self.velocity *= 0.8;
         self.force = Vec2::zero();
         self.position += self.velocity;
         self.position = self.position.rem_euclid(&Vec2::new(1024.0, 1024.0));
@@ -138,19 +139,17 @@ impl Particle {
         if distance < rule.min_distance {
             let repulsive_amount =
                 rule.force.abs() * remap(distance, 0.0..rule.min_distance, 1.0..0.0) * -3.0;
-            let repulsive = direction * repulsive_amount * FORCE_SCALE;
+            let repulsive = direction * repulsive_amount;
             self.force += repulsive;
         }
 
         if distance < rule.max_distance {
             let attract_amount = rule.force * remap(distance, 0.0..rule.max_distance, 1.0..0.0);
-            let attract = direction * attract_amount * FORCE_SCALE;
+            let attract = direction * attract_amount;
             self.force += attract;
         }
     }
 }
-
-const FORCE_SCALE: f32 = 0.001;
 
 /// https://processing.org/reference/map_.html
 fn remap(value: f32, current: Range<f32>, target: Range<f32>) -> f32 {
@@ -198,11 +197,11 @@ impl Rule {
     fn new_random() -> Self {
         let mut rng = thread_rng();
 
-        let min_distance = rng.gen_range(0.0_f32..50.0_f32);
-        let max_distance = min_distance + rng.gen_range(0.0_f32..200.0_f32);
+        let min_distance = rng.gen_range(30.0_f32..50.0_f32);
+        let max_distance = min_distance + rng.gen_range(70.0_f32..250.0_f32);
 
         Rule {
-            force: rng.gen_range(-1.0_f32..1.0_f32),
+            force: rng.gen_range(0.3_f32..1.0_f32) * if rng.gen_bool(0.5) { -1.0 } else { 1.0 },
             min_distance,
             max_distance,
         }
