@@ -107,7 +107,7 @@ impl PointsRenderer {
     }
 
     fn create_vertex_buffers(device: &ID3D12Device) -> [ID3D12Resource; 2] {
-        const INITIAL_VERTEX_COUNT: usize = 1000;
+        const INITIAL_VERTEX_COUNT: usize = 10000;
 
         array_init(|_| Self::create_vertex_buffer(device, INITIAL_VERTEX_COUNT))
     }

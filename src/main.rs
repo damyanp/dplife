@@ -163,13 +163,21 @@ impl App {
             color: 0,
         });
 
+        let world_size =Vec2::new(
+            renderer.get_viewport().Width as f32,
+            renderer.get_viewport().Height as f32,
+        );
+
         App {
             renderer,
             points_renderer,
             camera,
             rendered_ui,
             ui_state,
-            world: World::new(NUM_PARTICLES),
+            world: World::new(
+                NUM_PARTICLES,
+                world_size,
+            ),
             world_rules: particle_life::Rules::new_random(),
             verts,
             mouse: Mouse::new(),

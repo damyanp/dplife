@@ -11,23 +11,26 @@ use vek::{num_traits::Euclid, Vec2};
 use crate::renderer::points::Vertex;
 
 pub struct World {
+    size: Vec2<f32>,
     buffer_index: usize,
     particles: [RefCell<Vec<Particle>>; 2],
 }
 
 impl World {
-    pub fn new(num_particles: usize) -> Self {
-        let particles: Vec<_> = (0..num_particles).map(|_| Particle::new()).collect();
+    pub fn new(num_particles: usize, size: Vec2<f32>) -> Self {
+        let particles: Vec<_> = (0..num_particles).map(|_| Particle::new(&size)).collect();
 
         let particles = [RefCell::new(particles.clone()), RefCell::new(particles)];
 
         World {
+            size,
             buffer_index: 0,
             particles,
         }
     }
 
     pub fn update(&mut self, rules: &Rules, vertices: &mut [Vertex]) {
+        let size = self.size.clone();
         let (pin, mut pout) = self.get_particles();
 
         // Prepare for update
@@ -44,11 +47,13 @@ impl World {
                 let old_b = &pin[index_b];
 
                 pout[index_a].accumulate_force(
+                    &size,
                     rules.get_rule(old_a.particle_type, old_b.particle_type),
                     &old_b.position,
                 );
 
                 pout[index_b].accumulate_force(
+                    &size,
                     rules.get_rule(old_b.particle_type, old_a.particle_type),
                     &old_a.position,
                 );
@@ -56,7 +61,7 @@ impl World {
         }
 
         for (particle, vertex) in zip(pout.iter_mut(), vertices) {
-            particle.update(vertex);
+            particle.update(&size, vertex);
         }
 
         drop(pin);
@@ -85,14 +90,16 @@ struct Particle {
 }
 
 impl Particle {
-    fn new() -> Self {
-        let coordinate_range = 0.0_f32..1024.0_f32;
+    fn new(size: &Vec2<f32>) -> Self {
+        let x_coordinate_range = 0.0_f32..size.x;
+        let y_coordinate_range = 0.0_f32..size.y;
+
         let mut rng = thread_rng();
 
         Particle {
             position: Vec2::new(
-                rng.gen_range(coordinate_range.clone()),
-                rng.gen_range(coordinate_range.clone()),
+                rng.gen_range(x_coordinate_range.clone()),
+                rng.gen_range(y_coordinate_range.clone()),
             ),
             velocity: Vec2::zero(),
             particle_type: ParticleType(rng.gen_range(0..ParticleType::MAX)),
@@ -100,12 +107,12 @@ impl Particle {
         }
     }
 
-    fn update(&mut self, vertex: &mut Vertex) {
+    fn update(&mut self, world_size: &Vec2<f32>, vertex: &mut Vertex) {
         self.velocity += self.force * 0.05;
         self.velocity *= 0.8;
         self.force = Vec2::zero();
         self.position += self.velocity;
-        self.position = self.position.rem_euclid(&Vec2::new(1024.0, 1024.0));
+        self.position = self.position.rem_euclid(world_size);
 
         *vertex = Vertex {
             position: self.position.into_array(),
@@ -113,24 +120,21 @@ impl Particle {
         };
     }
 
-    fn accumulate_force(&mut self, rule: &Rule, other_position: &Vec2<f32>) {
+    fn accumulate_force(&mut self, world_size: &Vec2<f32>, rule: &Rule, other_position: &Vec2<f32>) {
         let mut direction = other_position - self.position;
 
-        let width = 1024.0;
-        let height = 1024.0;
-
         // Handle wrapping
-        if direction.x > width * 0.5 {
-            direction.x -= width;
+        if direction.x > world_size.x * 0.5 {
+            direction.x -= world_size.x;
         }
-        if direction.x < width * -0.5 {
-            direction.x += width;
+        if direction.x < world_size.x * -0.5 {
+            direction.x += world_size.x;
         }
-        if direction.y > height * 0.5 {
-            direction.y -= height;
+        if direction.y > world_size.y * 0.5 {
+            direction.y -= world_size.y;
         }
-        if direction.y < height * -0.5 {
-            direction.y += height;
+        if direction.y < world_size.y * -0.5 {
+            direction.y += world_size.y;
         }
 
         let distance = direction.magnitude();
