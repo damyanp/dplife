@@ -11,6 +11,8 @@ cbuffer CONSTANTS : register(b0) {
     uint ParticleTypeMax;
     uint NumParticles;
     float2 WorldSize;
+    float Friction;
+    float ForceMultipler;
 }
 
 struct Rule {
@@ -87,8 +89,8 @@ void main(uint3 dispatch_thread_id : SV_DispatchThreadID) {
     }
 
     float2 velocity = particle.velocity;
-    velocity += force * 0.05f;
-    velocity *= 0.9f;
+    velocity += force * ForceMultipler;
+    velocity *= Friction;
 
     particle.position = particle.position + velocity;
 

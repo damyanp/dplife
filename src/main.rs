@@ -11,7 +11,7 @@ use std::{
 use vek::Vec2;
 
 use d3dx12::transition_barrier;
-use imgui::{Condition::Always, DragRange, TreeNodeFlags};
+use imgui::{Condition::Always, Drag, DragRange, TreeNodeFlags};
 use imgui_manager::ImguiManager;
 
 use renderer::{points::PointsRenderer, Renderer};
@@ -101,7 +101,7 @@ struct UIState {
 }
 
 impl UIState {
-    fn draw_ui(&mut self, imgui: &mut imgui::Ui) {
+    fn draw_ui(&mut self, imgui: &mut imgui::Ui, world: &mut World) {
         imgui
             .window("dplife")
             .position([5.0, 5.0], Always)
@@ -144,6 +144,19 @@ impl UIState {
                     if force.start == force.end {
                         force.end = force.start + 0.001;
                     }
+                }
+
+                if imgui.collapsing_header("World", TreeNodeFlags::empty()) {
+                    let s = world.settings();
+
+                    Drag::new("friction")
+                        .range(0.0, 1.0)
+                        .speed(0.001)
+                        .build(imgui, &mut s.friction);
+                    Drag::new("force_multiplier")
+                        .range(0.0, 0.1)
+                        .speed(0.0001)
+                        .build(imgui, &mut s.force_multiplier);
                 }
             });
     }
@@ -197,7 +210,8 @@ impl App {
         );
 
         let world = World::new(&renderer.device, NUM_PARTICLES, world_size);
-        let world_rules = particle_life::Rules::new_random(ui_state.rule_generation_parameters.clone());
+        let world_rules =
+            particle_life::Rules::new_random(ui_state.rule_generation_parameters.clone());
 
         App {
             renderer,
@@ -270,8 +284,7 @@ impl App {
 
             let imgui = imgui_manager.new_frame(&mut self.rendered_ui.imgui_renderer);
 
-            self.ui_state
-                .draw_ui(imgui);
+            self.ui_state.draw_ui(imgui, &mut self.world);
 
             self.mouse.draw_ui(imgui);
 

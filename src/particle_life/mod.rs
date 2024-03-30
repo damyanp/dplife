@@ -31,10 +31,12 @@ pub struct World {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-struct ShaderGlobalConstants {
-    particle_type_max: u32,
-    num_particles: u32,
-    world_size: [f32; 2],
+pub struct ShaderGlobalConstants {
+    pub particle_type_max: u32,
+    pub num_particles: u32,
+    pub world_size: [f32; 2],
+    pub friction: f32,
+    pub force_multiplier: f32,
 }
 
 impl World {
@@ -43,6 +45,8 @@ impl World {
             particle_type_max: ParticleType::MAX as u32,
             num_particles: num_particles as u32,
             world_size: size.into_array(),
+            friction: 0.9_f32,
+            force_multiplier: 0.05_f32,
         };
 
         let particle_buffer_size = num_particles * size_of::<Particle>();
@@ -70,6 +74,10 @@ impl World {
             rs,
             pso,
         }
+    }
+
+    pub fn settings(&mut self) -> &mut ShaderGlobalConstants {
+        &mut self.shader_constants
     }
 
     pub fn reset_particles(&mut self) {
