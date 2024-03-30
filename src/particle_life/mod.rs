@@ -18,15 +18,19 @@ pub struct World {
 
 impl World {
     pub fn new(num_particles: usize, size: Vec2<f32>) -> Self {
-        let particles: Vec<_> = (0..num_particles).map(|_| Particle::new(&size)).collect();
-
-        let particles = [RefCell::new(particles.clone()), RefCell::new(particles)];
+        let particles = generate_random_particles(num_particles, size);
 
         World {
             size,
             buffer_index: 0,
             particles,
         }
+    }
+
+    pub fn scatter(&mut self) {
+        let count = self.particles[0].borrow().len();
+
+        self.particles = generate_random_particles(count, self.size);
     }
 
     pub fn update(&mut self, rules: &Rules, vertices: &mut [Vertex]) {
@@ -79,6 +83,12 @@ impl World {
             self.particles[out_index].borrow_mut(),
         )
     }
+    
+}
+
+fn generate_random_particles(num_particles: usize, size: Vec2<f32>) -> [RefCell<Vec<Particle>>; 2] {
+    let particles: Vec<_> = (0..num_particles).map(|_| Particle::new(&size)).collect();
+    [RefCell::new(particles.clone()), RefCell::new(particles)]
 }
 
 #[derive(Clone)]

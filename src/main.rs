@@ -1,4 +1,3 @@
-use array_init::array_init;
 use camera::Camera;
 use particle_life::World;
 use std::{
@@ -94,8 +93,10 @@ struct RenderedUI {
     imgui_renderer: imgui_windows_d3d12_renderer::Renderer,
 }
 
+#[derive(Default)]
 struct UIState {
-    demo_window: bool,
+    new_rules: bool,
+    scatter: bool,
 }
 
 impl UIState {
@@ -105,11 +106,8 @@ impl UIState {
             .position([5.0, 5.0], Always)
             .collapsed(true, imgui::Condition::Once)
             .build(|| {
-                imgui.checkbox("Demo", &mut self.demo_window);
-
-                if self.demo_window {
-                    imgui.show_demo_window(&mut self.demo_window);
-                }
+                self.new_rules = imgui.button("New Rules");
+                self.scatter = imgui.button("Scatter");
             });
     }
 }
@@ -151,7 +149,7 @@ impl App {
             imgui_manager,
             imgui_renderer,
         };
-        let ui_state = UIState { demo_window: false };
+        let ui_state = UIState::default();
 
         let camera = Camera::new(*renderer.get_viewport());
         let points_renderer = renderer.new_points_renderer();
@@ -186,6 +184,14 @@ impl App {
     }
 
     fn update(&mut self) {
+        if self.ui_state.new_rules {
+            self.world_rules = particle_life::Rules::new_random();
+        }
+
+        if self.ui_state.scatter {
+            self.world.scatter();
+        }
+
         self.camera.update(&self.mouse);
         self.world.update(&self.world_rules, &mut self.verts);
     }
