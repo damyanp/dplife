@@ -44,11 +44,70 @@ uint particle_type_to_color(uint type);
 void main(uint3 dispatch_thread_id : SV_DispatchThreadID) {
     uint particle_id = dispatch_thread_id.x;
 
-    NewParticles[particle_id] = OldParticles[particle_id];
-    NewParticles[particle_id].force = float2(0,0);
+    Particle particle = OldParticles[particle_id];
+    
+    // Accumulate forces
+    float2 force = float2(0,0);
 
-    Vertices[particle_id].position = NewParticles[particle_id].position;
-    Vertices[particle_id].color = particle_type_to_color(NewParticles[particle_id].type);
+    for (uint i = 0; i < NumParticles; ++i) {
+        if (i == particle_id)
+            continue;
+        
+        Particle other_particle = OldParticles[i];
+
+        Rule rule = Rules[particle.type * ParticleTypeMax + other_particle.type];
+
+        float2 direction = other_particle.position - particle.position;
+
+        // wrapping
+        if (direction.x > WorldSize.x * 0.5f)
+            direction.x -= WorldSize.x;
+        if (direction.x < WorldSize.x * -0.5f)
+            direction.x += WorldSize.x;
+        if (direction.y > WorldSize.y * 0.5f)
+            direction.y -= WorldSize.y;
+        if (direction.y < WorldSize.y * -0.5f)
+            direction.y += WorldSize.y;
+
+        // apply rule   
+        float distance = length(direction);
+        direction = normalize(direction);
+
+        if (distance < rule.min_distance) {
+            float repulsive_amount = abs(rule.force) * (1.0f - (distance / rule.min_distance))  * -3.0f;
+            force += direction * repulsive_amount;
+        }
+
+        if (distance < rule.max_distance) {
+            float attract_amount = rule.force * (1.0f - (distance / rule.max_distance));
+            force += direction * attract_amount;
+        }
+    }
+
+    float2 velocity = particle.velocity;
+    velocity += force * 0.05f;
+    velocity *= 0.8f;
+
+    particle.position = particle.position + velocity;
+
+    if (particle.position.x < 0)
+        particle.position.x += WorldSize.x;
+
+    if (particle.position.x > WorldSize.x)
+        particle.position.x -= WorldSize.x;
+
+    if (particle.position.y < 0)
+        particle.position.y += WorldSize.y;
+
+    if (particle.position.y > WorldSize.y)
+        particle.position.y -= WorldSize.y;
+
+
+    particle.velocity = velocity;
+
+    Vertices[particle_id].position = particle.position;
+    Vertices[particle_id].color = particle_type_to_color(particle.type);
+    NewParticles[particle_id] = particle;
 }
 
 

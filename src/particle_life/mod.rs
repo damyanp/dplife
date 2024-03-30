@@ -4,7 +4,7 @@ use palette::{FromColor, Hsl, Srgb};
 use rand::{thread_rng, Rng};
 use std::{
     cell::RefCell,
-    mem::{size_of, size_of_val},
+    mem::{size_of, size_of_val, swap},
     ops::Range,
 };
 use vek::{num_traits::Euclid, Vec2};
@@ -94,44 +94,9 @@ impl World {
             cl.SetComputeRootUnorderedAccessView(3, self.new_particles.GetGPUVirtualAddress());
             cl.SetComputeRootUnorderedAccessView(4, self.vertex_buffer.GetGPUVirtualAddress());
             cl.Dispatch(self.shader_constants.num_particles / 32, 1, 1);
-        }
+        }        
 
-        /*
-        let size = self.size;
-        let (pin, mut pout) = self.get_particles();
-
-        // Prepare for update
-        for (old, new) in zip(pin.iter(), pout.iter_mut()) {
-            *new = old.clone();
-        }
-
-        // Collect forces
-        for index_a in 0..pin.len() {
-            for index_b in index_a + 1..pin.len() {
-                assert!(index_a != index_b);
-
-                let old_a = &pin[index_a];
-                let old_b = &pin[index_b];
-
-                pout[index_a].accumulate_force(
-                    &size,
-                    rules.get_rule(old_a.particle_type, old_b.particle_type),
-                    &old_b.position,
-                );
-
-                pout[index_b].accumulate_force(
-                    &size,
-                    rules.get_rule(old_b.particle_type, old_a.particle_type),
-                    &old_a.position,
-                );
-            }
-        }
-
-        drop(pin);
-        drop(pout);
-
-        self.buffer_index += 1;
-        */
+        swap(&mut self.old_particles, &mut self.new_particles);
     }
 
     fn update_buffers(&mut self, rules: &Rules, cl: &ID3D12GraphicsCommandList) {
