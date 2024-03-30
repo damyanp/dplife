@@ -125,7 +125,7 @@ struct App {
     world: World,
     world_rules: particle_life::Rules,
 
-    verts: [Vertex; 1000],
+    verts: Vec<Vertex>,
 
     mouse: Mouse,
 }
@@ -156,14 +156,14 @@ impl App {
         let camera = Camera::new(*renderer.get_viewport());
         let points_renderer = renderer.new_points_renderer();
 
-        const NUM_PARTICLES: usize = 1000;
+        const NUM_PARTICLES: usize = 2000;
 
-        let verts: [Vertex; NUM_PARTICLES] = array_init(|_| Vertex {
+        let verts = Vec::from_iter((0..NUM_PARTICLES).map(|_| Vertex {
             position: [0.0, 0.0],
             color: 0,
-        });
+        }));
 
-        let world_size =Vec2::new(
+        let world_size = Vec2::new(
             renderer.get_viewport().Width as f32,
             renderer.get_viewport().Height as f32,
         );
@@ -174,10 +174,7 @@ impl App {
             camera,
             rendered_ui,
             ui_state,
-            world: World::new(
-                NUM_PARTICLES,
-                world_size,
-            ),
+            world: World::new(NUM_PARTICLES, world_size),
             world_rules: particle_life::Rules::new_random(),
             verts,
             mouse: Mouse::new(),
