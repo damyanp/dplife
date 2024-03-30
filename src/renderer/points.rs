@@ -29,8 +29,8 @@ pub struct PointsRenderer {
 }
 
 pub struct PointsBuffers {
-    pub vertex_buffers: [ID3D12Resource; 2],
-    pub buffer_index: usize,
+    vertex_buffers: [ID3D12Resource; 2],
+    buffer_index: usize,
 }
 
 impl PointsBuffers {
@@ -66,6 +66,19 @@ impl PointsBuffers {
         }
     }
 
+    pub fn populate_next_buffer(&mut self, vertices: &[Vertex]) -> &ID3D12Resource {
+        let num_buffers = self.vertex_buffers.len();
+        let vertex_buffer = &mut self.vertex_buffers[self.buffer_index];
+
+        let mut mapped = vertex_buffer.map();
+        let slice = &mut mapped.as_mut_slice()[0..vertices.len()];
+        slice.copy_from_slice(vertices);
+        drop(mapped);
+        
+        self.buffer_index = (self.buffer_index + 1) % num_buffers;
+
+        vertex_buffer
+    }
 }
 
 #[repr(C)]
@@ -149,12 +162,7 @@ impl PointsRenderer {
 //
 impl PointsRenderer {
     pub fn render(&mut self, camera: &Camera, cl: &ID3D12GraphicsCommandList, vertices: &[Vertex]) {
-        let vertex_buffer = &mut self.buffers.vertex_buffers[self.buffers.buffer_index];
-
-        let mut mapped = vertex_buffer.map();
-        let slice = &mut mapped.as_mut_slice()[0..vertices.len()];
-        slice.copy_from_slice(vertices);
-        drop(mapped);
+        let vertex_buffer = self.buffers.populate_next_buffer(vertices);
 
         unsafe {
             cl.SetGraphicsRootSignature(&self.rs);
@@ -180,7 +188,5 @@ impl PointsRenderer {
 
             cl.DrawInstanced(vertices.len() as u32, 1, 0, 0);
         }
-
-        self.buffers.buffer_index = (self.buffers.buffer_index + 1) % self.buffers.vertex_buffers.len();
     }
 }
