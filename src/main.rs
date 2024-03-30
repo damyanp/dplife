@@ -93,7 +93,7 @@ struct RenderedUI {
 #[derive(Default)]
 struct UIState {
     new_rules: bool,
-    scatter: bool,
+    reset_particles: bool,
 }
 
 impl UIState {
@@ -103,8 +103,8 @@ impl UIState {
             .position([5.0, 5.0], Always)
             .collapsed(true, imgui::Condition::Once)
             .build(|| {
+                self.reset_particles = imgui.button("Reset Particles");
                 self.new_rules = imgui.button("New Rules");
-                self.scatter = imgui.button("Scatter");
             });
     }
 }
@@ -179,8 +179,8 @@ impl App {
             self.world_rules = particle_life::Rules::new_random();
         }
 
-        if self.ui_state.scatter {
-            self.world.scatter();
+        if self.ui_state.reset_particles {
+            self.world.reset_particles();
         }
 
         self.camera.update(&self.mouse);

@@ -69,7 +69,7 @@ impl World {
         }
     }
 
-    pub fn scatter(&mut self) {
+    pub fn reset_particles(&mut self) {
         self.reset_particles = true;
     }
 
