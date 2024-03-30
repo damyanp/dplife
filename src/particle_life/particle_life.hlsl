@@ -23,7 +23,6 @@ struct Particle {
     float2 position;
     float2 velocity;
     uint type;
-    float2 force;
 };
 
 struct Vertex {

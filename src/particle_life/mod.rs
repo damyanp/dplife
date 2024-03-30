@@ -184,7 +184,6 @@ struct Particle {
     position: Vec2<f32>,
     velocity: Vec2<f32>,
     particle_type: ParticleType,
-    force: Vec2<f32>,
 }
 
 impl Particle {
@@ -201,7 +200,6 @@ impl Particle {
             ),
             velocity: Vec2::zero(),
             particle_type: ParticleType(rng.gen_range(0..ParticleType::MAX)),
-            force: Vec2::zero(),
         }
     }
 }
