@@ -14,10 +14,7 @@ use d3dx12::transition_barrier;
 use imgui::Condition::Always;
 use imgui_manager::ImguiManager;
 
-use renderer::{
-    points::{PointsRenderer, Vertex},
-    Renderer,
-};
+use renderer::{points::PointsRenderer, Renderer};
 use windows::Win32::Graphics::Direct3D12::{
     D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET,
 };
@@ -123,8 +120,6 @@ struct App {
     world: World,
     world_rules: particle_life::Rules,
 
-    verts: Vec<Vertex>,
-
     mouse: Mouse,
 }
 
@@ -156,15 +151,12 @@ impl App {
 
         const NUM_PARTICLES: usize = 2000;
 
-        let verts = Vec::from_iter((0..NUM_PARTICLES).map(|_| Vertex {
-            position: [0.0, 0.0],
-            color: 0,
-        }));
-
         let world_size = Vec2::new(
             renderer.get_viewport().Width,
             renderer.get_viewport().Height,
         );
+
+        let world = World::new(&renderer.device, NUM_PARTICLES, world_size);
 
         App {
             renderer,
@@ -172,9 +164,8 @@ impl App {
             camera,
             rendered_ui,
             ui_state,
-            world: World::new(NUM_PARTICLES, world_size),
+            world,
             world_rules: particle_life::Rules::new_random(),
-            verts,
             mouse: Mouse::new(),
         }
     }
@@ -193,7 +184,7 @@ impl App {
         }
 
         self.camera.update(&self.mouse);
-        self.world.update(&self.world_rules, &mut self.verts);
+        self.world.update(&self.world_rules);
     }
 
     fn render(&mut self) {
@@ -220,7 +211,9 @@ impl App {
             cl.ClearRenderTargetView(rtv, &[0.0_f32, 0.0_f32, 0.0_f32, 1.0_f32], None);
         }
 
-        self.points_renderer.render(&self.camera, &cl, &self.verts);
+        let (vertex_buffer, num_points) = self.world.get_next_vertex_buffer();
+        self.points_renderer
+            .render(&self.camera, &cl, vertex_buffer, num_points);
 
         // Prepare UI
         {

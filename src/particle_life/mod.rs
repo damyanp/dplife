@@ -1,4 +1,5 @@
 use array_init::array_init;
+use d3dx12::Mappable;
 use palette::{FromColor, Hsl, Srgb};
 use rand::{thread_rng, Rng};
 use std::{
@@ -7,23 +8,26 @@ use std::{
     ops::Range,
 };
 use vek::{num_traits::Euclid, Vec2};
+use windows::Win32::Graphics::Direct3D12::{ID3D12Device, ID3D12Resource};
 
-use crate::renderer::points::Vertex;
+use crate::renderer::points::{PointsBuffers, Vertex};
 
 pub struct World {
     size: Vec2<f32>,
     buffer_index: usize,
     particles: [RefCell<Vec<Particle>>; 2],
+    points_buffers: PointsBuffers,
 }
 
 impl World {
-    pub fn new(num_particles: usize, size: Vec2<f32>) -> Self {
+    pub fn new(device: &ID3D12Device, num_particles: usize, size: Vec2<f32>) -> Self {
         let particles = generate_random_particles(num_particles, size);
 
         World {
             size,
             buffer_index: 0,
             particles,
+            points_buffers: PointsBuffers::new(device),
         }
     }
 
@@ -33,7 +37,7 @@ impl World {
         self.particles = generate_random_particles(count, self.size);
     }
 
-    pub fn update(&mut self, rules: &Rules, vertices: &mut [Vertex]) {
+    pub fn update(&mut self, rules: &Rules) {
         let size = self.size;
         let (pin, mut pout) = self.get_particles();
 
@@ -64,10 +68,6 @@ impl World {
             }
         }
 
-        for (particle, vertex) in zip(pout.iter_mut(), vertices) {
-            particle.update(&size, vertex);
-        }
-
         drop(pin);
         drop(pout);
 
@@ -83,7 +83,23 @@ impl World {
             self.particles[out_index].borrow_mut(),
         )
     }
-    
+
+    pub fn get_next_vertex_buffer(&mut self) -> (&ID3D12Resource, u32) {
+        let particles = &self.particles[self.buffer_index % 2];
+        let num_particles = particles.borrow().len();
+
+        let vertex_buffer = self.points_buffers.get_next_buffer();
+        let mut mapped = vertex_buffer.map();
+        let vertices = &mut mapped.as_mut_slice()[0..num_particles];
+
+        for (particle, vertex) in zip(particles.borrow_mut().iter_mut(), vertices) {
+            particle.update(&self.size, vertex);
+        }
+
+        drop(mapped);
+
+        (vertex_buffer, num_particles as u32)
+    }
 }
 
 fn generate_random_particles(num_particles: usize, size: Vec2<f32>) -> [RefCell<Vec<Particle>>; 2] {
@@ -130,7 +146,12 @@ impl Particle {
         };
     }
 
-    fn accumulate_force(&mut self, world_size: &Vec2<f32>, rule: &Rule, other_position: &Vec2<f32>) {
+    fn accumulate_force(
+        &mut self,
+        world_size: &Vec2<f32>,
+        rule: &Rule,
+        other_position: &Vec2<f32>,
+    ) {
         let mut direction = other_position - self.position;
 
         // Handle wrapping

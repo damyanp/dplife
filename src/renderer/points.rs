@@ -25,7 +25,6 @@ use crate::camera::Camera;
 pub struct PointsRenderer {
     rs: ID3D12RootSignature,
     pso: ID3D12PipelineState,
-    buffers: PointsBuffers,
 }
 
 pub struct PointsBuffers {
@@ -39,7 +38,7 @@ impl PointsBuffers {
 
         PointsBuffers {
             vertex_buffers,
-            buffer_index: 0
+            buffer_index: 0,
         }
     }
 
@@ -66,6 +65,7 @@ impl PointsBuffers {
         }
     }
 
+    #[allow(dead_code)]
     pub fn populate_next_buffer(&mut self, vertices: &[Vertex]) -> &ID3D12Resource {
         let num_buffers = self.vertex_buffers.len();
         let vertex_buffer = &mut self.vertex_buffers[self.buffer_index];
@@ -74,9 +74,16 @@ impl PointsBuffers {
         let slice = &mut mapped.as_mut_slice()[0..vertices.len()];
         slice.copy_from_slice(vertices);
         drop(mapped);
-        
+
         self.buffer_index = (self.buffer_index + 1) % num_buffers;
 
+        vertex_buffer
+    }
+
+    pub fn get_next_buffer(&mut self) -> &mut ID3D12Resource {
+        let num_buffers = self.vertex_buffers.len();
+        let vertex_buffer = &mut self.vertex_buffers[self.buffer_index];
+        self.buffer_index = (self.buffer_index + 1) % num_buffers;
         vertex_buffer
     }
 }
@@ -95,13 +102,8 @@ impl PointsRenderer {
     pub fn new(device: &ID3D12Device, rtv_format: DXGI_FORMAT) -> Self {
         let rs = Self::create_root_signature(device);
         let pso = Self::create_pipeline_state(device, rtv_format, &rs);
-        let buffers = PointsBuffers::new(device);
 
-        PointsRenderer {
-            rs,
-            pso,
-            buffers,
-        }
+        PointsRenderer { rs, pso }
     }
 
     fn create_root_signature(device: &ID3D12Device) -> ID3D12RootSignature {
@@ -161,9 +163,13 @@ impl PointsRenderer {
 // PointsRenderer: render
 //
 impl PointsRenderer {
-    pub fn render(&mut self, camera: &Camera, cl: &ID3D12GraphicsCommandList, vertices: &[Vertex]) {
-        let vertex_buffer = self.buffers.populate_next_buffer(vertices);
-
+    pub fn render(
+        &mut self,
+        camera: &Camera,
+        cl: &ID3D12GraphicsCommandList,
+        vertex_buffer: &ID3D12Resource,
+        num_points: u32,
+    ) {
         unsafe {
             cl.SetGraphicsRootSignature(&self.rs);
             cl.SetPipelineState(&self.pso);
@@ -186,7 +192,7 @@ impl PointsRenderer {
                 0,
             );
 
-            cl.DrawInstanced(vertices.len() as u32, 1, 0, 0);
+            cl.DrawInstanced(num_points, 1, 0, 0);
         }
     }
 }
