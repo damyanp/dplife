@@ -317,11 +317,15 @@ impl Rule {
     fn new_random() -> Self {
         let mut rng = thread_rng();
 
-        let min_distance = rng.gen_range(30.0_f32..50.0_f32);
-        let max_distance = min_distance + rng.gen_range(70.0_f32..250.0_f32);
+        // let min_distance = rng.gen_range(30.0_f32..50.0_f32);
+        // let max_distance = min_distance + rng.gen_range(70.0_f32..250.0_f32);
+        
+        let min_distance = rng.gen_range(20.0_f32..100.0_f32);
+        let max_distance = min_distance + rng.gen_range(30.0_f32..100.0_f32);
 
         Rule {
-            force: rng.gen_range(0.3_f32..1.0_f32) * if rng.gen_bool(0.5) { -1.0 } else { 1.0 },
+            //force: rng.gen_range(0.3_f32..1.0_f32) * if rng.gen_bool(0.5) { -1.0 } else { 1.0 },
+            force: rng.gen_range(0.2_f32..1.0_f32) * if rng.gen_bool(0.5) { -1.0 } else { 1.0 },
             min_distance,
             max_distance,
         }

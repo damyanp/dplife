@@ -86,7 +86,7 @@ void main(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 
     float2 velocity = particle.velocity;
     velocity += force * 0.05f;
-    velocity *= 0.8f;
+    velocity *= 0.9f;
 
     particle.position = particle.position + velocity;
 

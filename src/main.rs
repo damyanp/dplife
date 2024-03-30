@@ -149,11 +149,11 @@ impl App {
         let camera = Camera::new(*renderer.get_viewport());
         let points_renderer = renderer.new_points_renderer();
 
-        const NUM_PARTICLES: usize = 2000;
+        const NUM_PARTICLES: usize = 50000;
 
         let world_size = Vec2::new(
-            renderer.get_viewport().Width,
-            renderer.get_viewport().Height,
+            renderer.get_viewport().Width * 3.0,
+            renderer.get_viewport().Height * 3.0,
         );
 
         let world = World::new(&renderer.device, NUM_PARTICLES, world_size);
