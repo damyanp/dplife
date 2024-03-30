@@ -98,14 +98,18 @@ impl HeapProperties for D3D12_HEAP_PROPERTIES {
     }
 }
 
-pub struct Mapped<'a, T> {
+pub struct RawMapped<'a> {
     resource: &'a ID3D12Resource,
     mapped: *mut std::ffi::c_void,
+}
+
+pub struct Mapped<'a, T> {
+    raw_mapped: RawMapped<'a>,
     element_count: usize,
     mapped_type: PhantomData<T>,
 }
 
-impl<'a, T> Drop for Mapped<'a, T> {
+impl<'a> Drop for RawMapped<'a> {
     fn drop(&mut self) {
         unsafe {
             self.resource.Unmap(0, None);
@@ -113,32 +117,63 @@ impl<'a, T> Drop for Mapped<'a, T> {
     }
 }
 
+impl<'a> RawMapped<'a> {
+    pub unsafe fn as_mut_offset<T>(&mut self, byte_offset: isize) -> &mut T {
+        std::mem::transmute(self.mapped.byte_offset(byte_offset))
+    }
+
+    pub unsafe fn as_mut_slice_offset<T>(&mut self, byte_offset: isize, element_count: usize) -> &mut [T] {
+        std::slice::from_raw_parts_mut(
+            std::mem::transmute(self.mapped.byte_offset(byte_offset)),
+            element_count)
+    }
+}
+
 impl<'a, T> Mapped<'a, T> {
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
-            std::slice::from_raw_parts_mut(std::mem::transmute(self.mapped), self.element_count)
+            std::slice::from_raw_parts_mut(
+                std::mem::transmute(self.raw_mapped.mapped),
+                self.element_count,
+            )
         }
     }
 
     pub fn as_slice(&self) -> &[T] {
-        unsafe { std::slice::from_raw_parts(std::mem::transmute(self.mapped), self.element_count) }
+        unsafe {
+            std::slice::from_raw_parts(
+                std::mem::transmute(self.raw_mapped.mapped),
+                self.element_count,
+            )
+        }
     }
 }
 
 pub trait Mappable {
+    fn map_raw<'a>(&'a mut self) -> RawMapped<'a>;
     fn map<'a, T>(&'a mut self) -> Mapped<'a, T>;
 }
 
 impl Mappable for ID3D12Resource {
+    fn map_raw<'a>(&'a mut self) -> RawMapped<'a> {
+        let mut mapped = std::ptr::null_mut();
+
+        unsafe {
+            self.Map(0, None, Some(&mut mapped)).unwrap();
+        }
+
+        RawMapped {
+            resource: self,
+            mapped,
+        }
+    }
+
     fn map<'a, T>(&'a mut self) -> Mapped<'a, T> {
         unsafe {
-            let mut mapped = std::ptr::null_mut();
-            self.Map(0, None, Some(&mut mapped)).unwrap();
-
+            let element_count = self.GetDesc().Width as usize / size_of::<T>();
             Mapped {
-                resource: self,
-                mapped,
-                element_count: self.GetDesc().Width as usize / size_of::<T>(),
+                raw_mapped: self.map_raw(),
+                element_count,
                 mapped_type: PhantomData,
             }
         }

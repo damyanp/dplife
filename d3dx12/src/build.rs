@@ -55,6 +55,8 @@ pub fn dxc_compile<P1: AsRef<Path>, P2: AsRef<Path>>(
             entry_point,
             "-Fo",
             dest_path.to_str().unwrap(),
+            "-Od",
+            "-Zi"
         ])
         .output()
         .expect("Failed to run dxc");

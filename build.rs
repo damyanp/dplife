@@ -19,4 +19,14 @@ fn main() {
         "rootsig_1_0",
         "ROOT_SIGNATURE",
     );
+
+    let particle_life = "src/particle_life/particle_life.hlsl";
+
+    dxc_compile(
+        particle_life,
+        "particle_life.root_signature",
+        "rootsig_1_0",
+        "ROOT_SIGNATURE",
+    );
+    dxc_compile(particle_life, "particle_life.dxil", "cs_6_0", "main");
 }

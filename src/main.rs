@@ -184,7 +184,6 @@ impl App {
         }
 
         self.camera.update(&self.mouse);
-        self.world.update(&self.world_rules);
     }
 
     fn render(&mut self) {
@@ -193,6 +192,8 @@ impl App {
         let render_target = self.renderer.get_render_target().clone();
 
         let cl = self.renderer.new_command_list();
+
+        self.world.update(&self.world_rules, &cl);
 
         unsafe {
             cl.ResourceBarrier(&[transition_barrier(
@@ -211,7 +212,7 @@ impl App {
             cl.ClearRenderTargetView(rtv, &[0.0_f32, 0.0_f32, 0.0_f32, 1.0_f32], None);
         }
 
-        let (vertex_buffer, num_points) = self.world.get_next_vertex_buffer();
+        let (vertex_buffer, num_points) = self.world.get_vertex_buffer();
         self.points_renderer
             .render(&self.camera, &cl, vertex_buffer, num_points);
 

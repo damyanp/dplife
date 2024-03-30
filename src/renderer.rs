@@ -392,13 +392,13 @@ fn get_hardware_adapter(factory: &IDXGIFactory4) -> windows::core::Result<IDXGIA
         let mut desc = Default::default();
         unsafe { adapter.GetDesc1(&mut desc)? };
 
-        if (DXGI_ADAPTER_FLAG(desc.Flags as i32) & DXGI_ADAPTER_FLAG_SOFTWARE)
-            != DXGI_ADAPTER_FLAG_NONE
-        {
-            // Don't select the Basic Render Driver adapter. If you want a
-            // software adapter, pass in "/warp" on the command line.
-            continue;
-        }
+        // if (DXGI_ADAPTER_FLAG(desc.Flags as i32) & DXGI_ADAPTER_FLAG_SOFTWARE)
+        //     != DXGI_ADAPTER_FLAG_NONE
+        // {
+        //     // Don't select the Basic Render Driver adapter. If you want a
+        //     // software adapter, pass in "/warp" on the command line.
+        //     continue;
+        // }
 
         // Check to see whether the adapter supports Direct3D 12, but don't
         // create the actual device yet.
