@@ -32,6 +32,7 @@ pub struct PointsBuffers {
     buffer_index: usize,
 }
 
+#[allow(dead_code)]
 impl PointsBuffers {
     pub fn new(device: &ID3D12Device) -> Self {
         let vertex_buffers = Self::create_vertex_buffers(device);
@@ -65,7 +66,6 @@ impl PointsBuffers {
         }
     }
 
-    #[allow(dead_code)]
     pub fn populate_next_buffer(&mut self, vertices: &[Vertex]) -> &ID3D12Resource {
         let num_buffers = self.vertex_buffers.len();
         let vertex_buffer = &mut self.vertex_buffers[self.buffer_index];

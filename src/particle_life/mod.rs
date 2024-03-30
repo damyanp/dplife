@@ -2,12 +2,8 @@ use array_init::array_init;
 use d3dx12::{HeapProperties, Mappable, ResourceDesc, ShaderBytecode};
 use palette::{FromColor, Hsl, Srgb};
 use rand::{thread_rng, Rng};
-use std::{
-    cell::RefCell,
-    mem::{size_of, size_of_val, swap},
-    ops::Range,
-};
-use vek::{num_traits::Euclid, Vec2};
+use std::mem::{size_of, size_of_val, swap};
+use vek::Vec2;
 use windows::Win32::Graphics::Direct3D12::{
     ID3D12Device, ID3D12GraphicsCommandList, ID3D12PipelineState, ID3D12Resource,
     ID3D12RootSignature, D3D12_COMPUTE_PIPELINE_STATE_DESC, D3D12_HEAP_FLAG_NONE, D3D12_HEAP_TYPE,
@@ -94,7 +90,7 @@ impl World {
             cl.SetComputeRootUnorderedAccessView(3, self.new_particles.GetGPUVirtualAddress());
             cl.SetComputeRootUnorderedAccessView(4, self.vertex_buffer.GetGPUVirtualAddress());
             cl.Dispatch(self.shader_constants.num_particles / 32, 1, 1);
-        }        
+        }
 
         swap(&mut self.old_particles, &mut self.new_particles);
     }
@@ -182,11 +178,6 @@ fn create_buffer(device: &ID3D12Device, size: usize) -> ID3D12Resource {
     create_buffer_with_type(device, size, D3D12_HEAP_TYPE_DEFAULT)
 }
 
-fn generate_random_particles(num_particles: usize, size: Vec2<f32>) -> [RefCell<Vec<Particle>>; 2] {
-    let particles: Vec<_> = (0..num_particles).map(|_| Particle::new(&size)).collect();
-    [RefCell::new(particles.clone()), RefCell::new(particles)]
-}
-
 #[derive(Clone, Copy)]
 #[repr(C)]
 struct Particle {
@@ -213,70 +204,13 @@ impl Particle {
             force: Vec2::zero(),
         }
     }
-
-    fn update(&mut self, world_size: &Vec2<f32>, vertex: &mut Vertex) {
-        self.velocity += self.force * 0.05;
-        self.velocity *= 0.8;
-        self.force = Vec2::zero();
-        self.position += self.velocity;
-        self.position = self.position.rem_euclid(world_size);
-
-        *vertex = Vertex {
-            position: self.position.into_array(),
-            color: self.particle_type.as_color(),
-        };
-    }
-
-    fn accumulate_force(
-        &mut self,
-        world_size: &Vec2<f32>,
-        rule: &Rule,
-        other_position: &Vec2<f32>,
-    ) {
-        let mut direction = other_position - self.position;
-
-        // Handle wrapping
-        if direction.x > world_size.x * 0.5 {
-            direction.x -= world_size.x;
-        }
-        if direction.x < world_size.x * -0.5 {
-            direction.x += world_size.x;
-        }
-        if direction.y > world_size.y * 0.5 {
-            direction.y -= world_size.y;
-        }
-        if direction.y < world_size.y * -0.5 {
-            direction.y += world_size.y;
-        }
-
-        let distance = direction.magnitude();
-        let direction = direction.normalized();
-
-        if distance < rule.min_distance {
-            let repulsive_amount =
-                rule.force.abs() * remap(distance, 0.0..rule.min_distance, 1.0..0.0) * -3.0;
-            let repulsive = direction * repulsive_amount;
-            self.force += repulsive;
-        }
-
-        if distance < rule.max_distance {
-            let attract_amount = rule.force * remap(distance, 0.0..rule.max_distance, 1.0..0.0);
-            let attract = direction * attract_amount;
-            self.force += attract;
-        }
-    }
-}
-
-/// https://processing.org/reference/map_.html
-fn remap(value: f32, current: Range<f32>, target: Range<f32>) -> f32 {
-    let t = (value - current.start) / (current.end - current.start);
-
-    target.start * (1.0 - t) + target.end * t
 }
 
 #[derive(Clone, Copy)]
+#[allow(dead_code)]
 struct ParticleType(u8);
 
+#[allow(dead_code)]
 impl ParticleType {
     const MAX: u8 = 8;
 
@@ -293,6 +227,7 @@ pub struct Rules {
     rules: [Rule; (ParticleType::MAX * ParticleType::MAX) as usize],
 }
 
+#[allow(dead_code)]
 impl Rules {
     pub fn new_random() -> Self {
         Rules {
@@ -319,7 +254,7 @@ impl Rule {
 
         // let min_distance = rng.gen_range(30.0_f32..50.0_f32);
         // let max_distance = min_distance + rng.gen_range(70.0_f32..250.0_f32);
-        
+
         let min_distance = rng.gen_range(20.0_f32..100.0_f32);
         let max_distance = min_distance + rng.gen_range(30.0_f32..100.0_f32);
 
