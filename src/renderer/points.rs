@@ -25,9 +25,47 @@ use crate::camera::Camera;
 pub struct PointsRenderer {
     rs: ID3D12RootSignature,
     pso: ID3D12PipelineState,
+    buffers: PointsBuffers,
+}
 
-    vertex_buffers: [ID3D12Resource; 2],
-    buffer_index: usize,
+pub struct PointsBuffers {
+    pub vertex_buffers: [ID3D12Resource; 2],
+    pub buffer_index: usize,
+}
+
+impl PointsBuffers {
+    pub fn new(device: &ID3D12Device) -> Self {
+        let vertex_buffers = Self::create_vertex_buffers(device);
+
+        PointsBuffers {
+            vertex_buffers,
+            buffer_index: 0
+        }
+    }
+
+    fn create_vertex_buffers(device: &ID3D12Device) -> [ID3D12Resource; 2] {
+        const INITIAL_VERTEX_COUNT: usize = 10000;
+
+        array_init(|_| Self::create_vertex_buffer(device, INITIAL_VERTEX_COUNT))
+    }
+
+    fn create_vertex_buffer(device: &ID3D12Device, vertex_count: usize) -> ID3D12Resource {
+        unsafe {
+            let mut resource: Option<ID3D12Resource> = None;
+            device
+                .CreateCommittedResource(
+                    &HeapProperties::standard(D3D12_HEAP_TYPE_UPLOAD),
+                    D3D12_HEAP_FLAG_NONE,
+                    &ResourceDesc::buffer(vertex_count * size_of::<Vertex>()),
+                    D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
+                    None,
+                    &mut resource,
+                )
+                .unwrap();
+            resource.unwrap()
+        }
+    }
+
 }
 
 #[repr(C)]
@@ -44,13 +82,12 @@ impl PointsRenderer {
     pub fn new(device: &ID3D12Device, rtv_format: DXGI_FORMAT) -> Self {
         let rs = Self::create_root_signature(device);
         let pso = Self::create_pipeline_state(device, rtv_format, &rs);
-        let vertex_buffers = Self::create_vertex_buffers(device);
+        let buffers = PointsBuffers::new(device);
 
         PointsRenderer {
             rs,
             pso,
-            vertex_buffers,
-            buffer_index: 0,
+            buffers,
         }
     }
 
@@ -105,29 +142,6 @@ impl PointsRenderer {
 
         unsafe { device.CreateGraphicsPipelineState(&desc).unwrap() }
     }
-
-    fn create_vertex_buffers(device: &ID3D12Device) -> [ID3D12Resource; 2] {
-        const INITIAL_VERTEX_COUNT: usize = 10000;
-
-        array_init(|_| Self::create_vertex_buffer(device, INITIAL_VERTEX_COUNT))
-    }
-
-    fn create_vertex_buffer(device: &ID3D12Device, vertex_count: usize) -> ID3D12Resource {
-        unsafe {
-            let mut resource: Option<ID3D12Resource> = None;
-            device
-                .CreateCommittedResource(
-                    &HeapProperties::standard(D3D12_HEAP_TYPE_UPLOAD),
-                    D3D12_HEAP_FLAG_NONE,
-                    &ResourceDesc::buffer(vertex_count * size_of::<Vertex>()),
-                    D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
-                    None,
-                    &mut resource,
-                )
-                .unwrap();
-            resource.unwrap()
-        }
-    }
 }
 
 //
@@ -135,7 +149,7 @@ impl PointsRenderer {
 //
 impl PointsRenderer {
     pub fn render(&mut self, camera: &Camera, cl: &ID3D12GraphicsCommandList, vertices: &[Vertex]) {
-        let vertex_buffer = &mut self.vertex_buffers[self.buffer_index];
+        let vertex_buffer = &mut self.buffers.vertex_buffers[self.buffers.buffer_index];
 
         let mut mapped = vertex_buffer.map();
         let slice = &mut mapped.as_mut_slice()[0..vertices.len()];
@@ -167,6 +181,6 @@ impl PointsRenderer {
             cl.DrawInstanced(vertices.len() as u32, 1, 0, 0);
         }
 
-        self.buffer_index = (self.buffer_index + 1) % self.vertex_buffers.len();
+        self.buffers.buffer_index = (self.buffers.buffer_index + 1) % self.buffers.vertex_buffers.len();
     }
 }
