@@ -34,7 +34,7 @@ impl World {
     }
 
     pub fn update(&mut self, rules: &Rules, vertices: &mut [Vertex]) {
-        let size = self.size.clone();
+        let size = self.size;
         let (pin, mut pout) = self.get_particles();
 
         // Prepare for update

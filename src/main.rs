@@ -162,8 +162,8 @@ impl App {
         }));
 
         let world_size = Vec2::new(
-            renderer.get_viewport().Width as f32,
-            renderer.get_viewport().Height as f32,
+            renderer.get_viewport().Width,
+            renderer.get_viewport().Height,
         );
 
         App {
