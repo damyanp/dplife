@@ -36,7 +36,8 @@ RWStructuredBuffer<Particle> NewParticles : register(u0);
 RWStructuredBuffer<Vertex> Vertices : register(u1);
 
 
-uint particle_type_to_color(uint type);
+float3 particle_type_to_color(uint type);
+uint float_to_abgr(float3 rgb);
 
 
 [numthreads(32, 1, 1)]
@@ -47,6 +48,7 @@ void main(uint3 dispatch_thread_id : SV_DispatchThreadID) {
     
     // Accumulate forces
     float2 force = float2(0,0);
+    float hit = 0;
 
     for (uint i = 0; i < NumParticles; ++i) {
         if (i == particle_id)
@@ -80,6 +82,7 @@ void main(uint3 dispatch_thread_id : SV_DispatchThreadID) {
         if (distance < rule.max_distance) {
             float attract_amount = rule.force * (1.0f - (distance / rule.max_distance));
             force += direction * attract_amount;
+            hit += 0.01f;
         }
     }
 
@@ -105,7 +108,13 @@ void main(uint3 dispatch_thread_id : SV_DispatchThreadID) {
     particle.velocity = velocity;
 
     Vertices[particle_id].position = particle.position;
-    Vertices[particle_id].color = particle_type_to_color(particle.type);
+
+    float3 color =  particle_type_to_color(particle.type);
+
+    color = lerp(color, float3(0,0,0), 1-saturate(hit));
+
+    Vertices[particle_id].color = float_to_abgr(color);
+
     NewParticles[particle_id] = particle;
 }
 
@@ -119,15 +128,18 @@ float3 hue2rgb(float H) {
     return saturate(float3(R,G,B));
 }
 
-uint particle_type_to_color(uint type) {
+float3 particle_type_to_color(uint type) {
     float hue = (float)type / float(ParticleTypeMax);
-    float3 rgb = hue2rgb(hue) * 255;
+    return hue2rgb(hue);
+}
+
+uint float_to_abgr(float3 rgb) {
+    rgb *= 255.0;
 
     uint r = rgb.x;
     uint g = rgb.y;
     uint b = rgb.z;
     uint a = 255; 
 
-    return (a << 24) | (b << 16) | (g << 8) | r;
-    
+    return (a << 24) | (b << 16) | (g << 8) | r;    
 }
