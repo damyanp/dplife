@@ -2,24 +2,19 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"type": "cargo",
-			"command": "build",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
+			"type": "shell",
+			"command": "cargo",
 			"args": [
-				"--all-targets"
+				"build"
+			],
+			"problemMatcher": [
+				"$rustc"
 			],
 			"presentation": {
 				"clear": true
 			},
-			"problemMatcher": [
-				"$rustc"
-			],
 			"group": "build",
-			"label": "rust: cargo build",
-			"env": {"CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG": "true"}
-
+			"label": "rust: cargo build"
 		}
 	]
 }
