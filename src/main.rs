@@ -11,7 +11,7 @@ use std::{
 use vek::Vec2;
 
 use d3dx12::transition_barrier;
-use imgui::Condition::Always;
+use imgui::{Condition::Always, DragRange, TreeNodeFlags};
 use imgui_manager::ImguiManager;
 
 use renderer::{points::PointsRenderer, Renderer};
@@ -24,6 +24,8 @@ use winit::{
     event_loop::EventLoop,
     window::WindowBuilder,
 };
+
+use crate::particle_life::RuleGenerationParameters;
 
 mod camera;
 mod imgui_manager;
@@ -94,6 +96,8 @@ struct RenderedUI {
 struct UIState {
     new_rules: bool,
     reset_particles: bool,
+
+    rule_generation_parameters: RuleGenerationParameters,
 }
 
 impl UIState {
@@ -105,6 +109,42 @@ impl UIState {
             .build(|| {
                 self.reset_particles = imgui.button("Reset Particles");
                 self.new_rules = imgui.button("New Rules");
+
+                if imgui.collapsing_header("Rule Generation", TreeNodeFlags::empty()) {
+                    let params = &mut self.rule_generation_parameters;
+                    let min = &mut params.min_distance;
+                    DragRange::new("min").range(0.0, 100.0).build(
+                        imgui,
+                        &mut min.start,
+                        &mut min.end,
+                    );
+
+                    if min.start == min.end {
+                        min.end = min.start + 0.001;
+                    }
+
+                    let max = &mut params.max_distance;
+                    DragRange::new("max").range(0.0, 100.0).build(
+                        imgui,
+                        &mut max.start,
+                        &mut max.end,
+                    );
+
+                    if max.start == max.end {
+                        max.end = max.start + 0.001;
+                    }
+
+                    let force = &mut params.force;
+                    DragRange::new("force").range(0.0, 2.0).build(
+                        imgui,
+                        &mut force.start,
+                        &mut force.end,
+                    );
+
+                    if force.start == force.end {
+                        force.end = force.start + 0.001;
+                    }
+                }
             });
     }
 }
@@ -157,6 +197,7 @@ impl App {
         );
 
         let world = World::new(&renderer.device, NUM_PARTICLES, world_size);
+        let world_rules = particle_life::Rules::new_random(ui_state.rule_generation_parameters.clone());
 
         App {
             renderer,
@@ -165,7 +206,7 @@ impl App {
             rendered_ui,
             ui_state,
             world,
-            world_rules: particle_life::Rules::new_random(),
+            world_rules,
             mouse: Mouse::new(),
         }
     }
@@ -176,7 +217,8 @@ impl App {
 
     fn update(&mut self) {
         if self.ui_state.new_rules {
-            self.world_rules = particle_life::Rules::new_random();
+            self.world_rules =
+                particle_life::Rules::new_random(self.ui_state.rule_generation_parameters.clone());
         }
 
         if self.ui_state.reset_particles {
@@ -228,7 +270,8 @@ impl App {
 
             let imgui = imgui_manager.new_frame(&mut self.rendered_ui.imgui_renderer);
 
-            self.ui_state.draw_ui(imgui);
+            self.ui_state
+                .draw_ui(imgui);
 
             self.mouse.draw_ui(imgui);
 

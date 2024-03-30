@@ -2,7 +2,10 @@ use array_init::array_init;
 use d3dx12::{HeapProperties, Mappable, ResourceDesc, ShaderBytecode};
 use palette::{FromColor, Hsl, Srgb};
 use rand::{thread_rng, Rng};
-use std::mem::{size_of, size_of_val, swap};
+use std::{
+    mem::{size_of, size_of_val, swap},
+    ops::Range,
+};
 use vek::Vec2;
 use windows::Win32::Graphics::Direct3D12::{
     ID3D12Device, ID3D12GraphicsCommandList, ID3D12PipelineState, ID3D12Resource,
@@ -227,9 +230,9 @@ pub struct Rules {
 
 #[allow(dead_code)]
 impl Rules {
-    pub fn new_random() -> Self {
+    pub fn new_random(params: RuleGenerationParameters) -> Self {
         Rules {
-            rules: array_init(|_| Rule::new_random()),
+            rules: array_init(|_| Rule::new_random(params.clone())),
         }
     }
 
@@ -246,19 +249,32 @@ struct Rule {
     pub max_distance: f32,
 }
 
+#[derive(Clone)]
+pub struct RuleGenerationParameters {
+    pub min_distance: Range<f32>,
+    pub max_distance: Range<f32>,
+    pub force: Range<f32>,
+}
+
+impl Default for RuleGenerationParameters {
+    fn default() -> Self {
+        Self {
+            min_distance: 30.0_f32..50.0_f32,
+            max_distance: 70.0_f32..250.0_f32,
+            force: 0.3_f32..1.0_f32,
+        }
+    }
+}
+
 impl Rule {
-    fn new_random() -> Self {
+    fn new_random(params: RuleGenerationParameters) -> Self {
         let mut rng = thread_rng();
 
-        // let min_distance = rng.gen_range(30.0_f32..50.0_f32);
-        // let max_distance = min_distance + rng.gen_range(70.0_f32..250.0_f32);
-
-        let min_distance = rng.gen_range(20.0_f32..100.0_f32);
-        let max_distance = min_distance + rng.gen_range(30.0_f32..100.0_f32);
+        let min_distance = rng.gen_range(params.min_distance);
+        let max_distance = min_distance + rng.gen_range(params.max_distance);
 
         Rule {
-            //force: rng.gen_range(0.3_f32..1.0_f32) * if rng.gen_bool(0.5) { -1.0 } else { 1.0 },
-            force: rng.gen_range(0.2_f32..1.0_f32) * if rng.gen_bool(0.5) { -1.0 } else { 1.0 },
+            force: rng.gen_range(params.force) * if rng.gen_bool(0.5) { -1.0 } else { 1.0 },
             min_distance,
             max_distance,
         }
