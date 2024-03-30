@@ -187,13 +187,19 @@ impl App {
     }
 
     fn render(&mut self) {
+        let cl = self.renderer.new_command_list();
+        self.world.update(&self.world_rules, &cl);
+        unsafe {
+            cl.Close().unwrap();
+        }
+
+        self.renderer.execute_command_lists(ecl![cl]);
+
         self.renderer.start_new_frame();
 
         let render_target = self.renderer.get_render_target().clone();
 
         let cl = self.renderer.new_command_list();
-
-        self.world.update(&self.world_rules, &cl);
 
         unsafe {
             cl.ResourceBarrier(&[transition_barrier(
@@ -241,6 +247,7 @@ impl App {
 
         self.renderer.execute_command_lists(ecl![cl]);
         self.renderer.present();
+
         self.renderer.end_frame();
     }
 

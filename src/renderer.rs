@@ -303,10 +303,6 @@ impl Frame {
 
             self.command_allocator.Reset().unwrap();
 
-            for cl in &self.used_command_lists {
-                cl.Reset(&self.command_allocator, None).unwrap();
-            }
-
             self.available_command_lists
                 .append(&mut self.used_command_lists);
         }
@@ -332,7 +328,11 @@ impl Frame {
                     .unwrap()
             }
         } else {
-            self.available_command_lists.pop().unwrap()
+            let command_list = self.available_command_lists.pop().unwrap();
+            unsafe {
+                command_list.Reset(&self.command_allocator, None).unwrap();
+            }
+            command_list
         };
 
         self.used_command_lists.push(command_list.clone());
