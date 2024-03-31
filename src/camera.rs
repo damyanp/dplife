@@ -11,6 +11,7 @@ pub struct Camera {
     pos: Point,
     zoom: f32, // eg 1 = scale 1, 2 = scale 2, 3 = scale 4, -1 = scale 0.5 etc.
     scale: f32,
+    matrix: Mat4<f32>,
 
     move_operation: Option<MoveOperation>,
 }
@@ -35,6 +36,7 @@ impl Camera {
             pos,
             zoom,
             scale,
+            matrix: Self::calculate_matrix(pos, scale),
             move_operation: None,
         }
     }
@@ -67,17 +69,25 @@ impl Camera {
 
             self.scale = 2.0_f32.powf(self.zoom);
 
-            let new_world_mouse_pos = self.view_to_world(mouse_pos);
+            let m = Self::calculate_matrix(self.pos, self.scale).inverted_affine_transform();
+            let new_world_mouse_pos = Point::from(m * vek::Vec4::from_point(mouse_pos));
 
             let delta = new_world_mouse_pos - world_mouse_pos;
 
             self.pos += delta;
         }
+
+        let dest_matrix = Self::calculate_matrix(self.pos, self.scale);
+        self.matrix = self.matrix.map(|e| e * 0.6) + dest_matrix.map(|e| e * 0.4);
     }
 
     pub fn get_matrix(&self) -> Mat4<f32> {
-        let translate: Mat4<f32> = Mat4::translation_2d(self.pos);
-        let scale = Mat4::scaling_3d(self.scale);
+        self.matrix
+    }
+
+    fn calculate_matrix(pos:Vec2<f32>, scale: f32) -> Mat4<f32> {
+        let translate: Mat4<f32> = Mat4::translation_2d(pos);
+        let scale = Mat4::scaling_3d(scale);
 
         scale * translate
     }
