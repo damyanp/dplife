@@ -71,7 +71,7 @@ impl ImguiManager {
 
     /// Handle events; returns true if the event should be passed on to the app,
     /// false otherwise.
-    pub fn handle_event(&mut self, event: &Event<'_, ()>) -> bool {
+    pub fn handle_event(&mut self, event: &Event<()>) -> bool {
         let io = self.imgui.io_mut();
 
         match event {
@@ -80,7 +80,7 @@ impl ImguiManager {
                 io.update_delta_time(now - self.last_frame_instant);
                 self.last_frame_instant = now;
             }
-            Event::MainEventsCleared => {}
+            Event::AboutToWait => {}
             Event::WindowEvent {
                 event: WindowEvent::Resized(_),
                 ..

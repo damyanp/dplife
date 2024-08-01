@@ -12,7 +12,6 @@ use windows::{
         System::Threading::{CreateEventA, WaitForSingleObject, INFINITE},
     },
 };
-use winit::platform::windows::WindowExtWindows;
 use winit::window::Window;
 
 pub mod points;
@@ -62,7 +61,7 @@ impl Renderer {
                 .unwrap();
 
             let size = window.inner_size();
-            let hwnd = HWND(window.hwnd());
+            let hwnd = HWND(Into::<u64>::into(window.id()) as isize);
 
             let swap_chain = SwapChain::new(&factory, &device, &command_queue, size, hwnd);
 

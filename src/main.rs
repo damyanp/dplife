@@ -1,7 +1,6 @@
 use camera::Camera;
 use particle_life::World;
 use std::{
-    error::Error,
     sync::{
         mpsc::{self, Receiver},
         Arc, Mutex,
@@ -32,20 +31,20 @@ mod imgui_manager;
 mod particle_life;
 mod renderer;
 
-enum ThreadMessage<'a> {
+enum ThreadMessage {
     Quit,
-    Event(Event<'a, ()>),
+    Event(Event<()>),
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let event_loop = EventLoop::new();
+fn main() {
+    let event_loop = EventLoop::new().unwrap();
 
     let builder = WindowBuilder::new().with_inner_size(LogicalSize {
         width: 1024,
         height: 768,
     });
 
-    let window = builder.build(&event_loop)?;
+    let window = builder.build(&event_loop).unwrap();
 
     let renderer = Renderer::new(&window);
 
@@ -58,33 +57,30 @@ fn main() -> Result<(), Box<dyn Error>> {
         main_thread(rx, renderer, imgui_manager_for_main_thread)
     }));
 
-    event_loop.run(move |event, _, control_flow| {
-        let pass_event_to_app = imgui_manager.lock().unwrap().handle_event(&event);
+    event_loop
+        .run(move |event, elwt| {
+            let pass_event_to_app = imgui_manager.lock().unwrap().handle_event(&event);
 
-        match event {
-            Event::WindowEvent {
+            if let Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => {
+            } = event
+            {
                 if let Some(thread) = main_thread.take() {
                     tx.send(ThreadMessage::Quit).unwrap();
                     thread.join().unwrap();
                 }
-                control_flow.set_exit();
+                elwt.exit();
             }
-            Event::RedrawRequested(_) => (),
-            _ => (),
-        }
 
-        if main_thread.is_some() && pass_event_to_app {
-            // event.to_static() consumes event, so we have to make this the
-            // last thing we do with it. See
-            // https://github.com/rust-windowing/winit/issues/1968.
-            if let Some(static_event) = event.to_static() {
-                tx.send(ThreadMessage::Event(static_event)).unwrap();
+            if main_thread.is_some() && pass_event_to_app {
+                // event.to_static() consumes event, so we have to make this the
+                // last thing we do with it. See
+                // https://github.com/rust-windowing/winit/issues/1968.
+                tx.send(ThreadMessage::Event(event.clone())).unwrap();
             }
-        }
-    });
+        })
+        .unwrap();
 }
 
 struct RenderedUI {
@@ -307,7 +303,7 @@ impl App {
         self.renderer.end_frame();
     }
 
-    fn handle_event<T>(&mut self, event: Event<'_, T>) {
+    fn handle_event<T>(&mut self, event: Event<T>) {
         if let Event::WindowEvent {
             event: window_event,
             ..
@@ -341,7 +337,7 @@ impl Mouse {
         self.wheel = 0.0;
     }
 
-    fn handle_event(&mut self, window_event: WindowEvent<'_>) {
+    fn handle_event(&mut self, window_event: WindowEvent) {
         match window_event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.position = Vec2::from((position.x as f32, position.y as f32));
@@ -376,7 +372,7 @@ impl Mouse {
 }
 
 fn main_thread(
-    rx: Receiver<ThreadMessage<'_>>,
+    rx: Receiver<ThreadMessage>,
     renderer: Renderer,
     imgui_manager: Arc<Mutex<ImguiManager>>,
 ) {

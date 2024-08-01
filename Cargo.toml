@@ -8,10 +8,13 @@ edition = "2021"
 anyhow = "1.0.81"
 array-init = "2.0.0"
 d3dx12 = { path = "d3dx12" }
-imgui = "0.11.0"
-imgui-windows-d3d12-renderer = "0.1"
-imgui-winit-support = "0.11.0"
-winit = "0.27.5"
+
+# Need imgui-rs to publish >0.12.0 with required bug fixes before we can use
+# crates.io versions of these crates.
+imgui = { git = "https://github.com/imgui-rs/imgui-rs.git", ref = "67f7f11363e62f09aa0e1288a17800e505860486" }
+imgui-winit-support = { git = "https://github.com/imgui-rs/imgui-rs.git", ref = "67f7f11363e62f09aa0e1288a17800e505860486" }
+imgui-windows-d3d12-renderer = { git = "https://github.com/damyanp/imgui-windows-d3d12-renderer.git" }
+winit = "^0.29.3"
 rand = "0.8"
 vek = "0.16"
 palette = "0.7.5"
@@ -31,6 +34,6 @@ d3dx12 = { path = "d3dx12" }
 
 # Uncomment this if making changes to these crates locally
 
-# [patch.crates-io]
-# imgui-windows-d3d12-renderer = { path = "../imgui-windows-d3d12-renderer" }
+#[patch.crates-io]
+#imgui-windows-d3d12-renderer = { path = "../imgui-windows-d3d12-renderer" }
 
