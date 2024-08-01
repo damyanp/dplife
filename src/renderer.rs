@@ -43,10 +43,12 @@ pub struct FrameManager {
 }
 
 pub struct Frame {
+    _index: usize,
     fence_value: u64,
     command_allocator: ID3D12CommandAllocator,
     available_command_lists: Vec<ID3D12GraphicsCommandList>,
     used_command_lists: Vec<ID3D12GraphicsCommandList>,
+    started: bool
 }
 
 impl Renderer {
@@ -247,7 +249,7 @@ impl FrameManager {
             fence_event: CreateEventA(None, false, false, None).unwrap(),
             next_fence_value: 1,
             frame_index: 0,
-            frames: array_init(|_| Frame::new(device)),
+            frames: array_init(|i| Frame::new(i, device)),
         }
     }
 
@@ -259,13 +261,7 @@ impl FrameManager {
     }
 
     fn end_frame(&mut self, command_queue: &ID3D12CommandQueue) {
-        unsafe {
-            command_queue
-                .Signal(&self.fence, self.next_fence_value)
-                .unwrap();
-        }
-        self.frames[self.frame_index].fence_value = self.next_fence_value;
-
+        self.frames[self.frame_index].end(command_queue, &self.fence, self.next_fence_value);
         self.next_fence_value += 1;
     }
 
@@ -285,26 +281,48 @@ impl Drop for FrameManager {
 }
 
 impl Frame {
-    unsafe fn new(device: &ID3D12Device) -> Self {
+    unsafe fn new(index: usize, device: &ID3D12Device) -> Self {
+        let command_allocator: ID3D12CommandAllocator = device
+            .CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT)
+            .unwrap();
+        command_allocator
+            .SetName(&HSTRING::from(format!("Command Allocator {}", index)))
+            .unwrap();
+
         Frame {
+            _index: index,
             fence_value: 0,
-            command_allocator: device
-                .CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT)
-                .unwrap(),
+            command_allocator,
             available_command_lists: Vec::new(),
             used_command_lists: Vec::new(),
+            started: false
         }
     }
 
     fn start_new(&mut self, fence: &ID3D12Fence, fence_event: HANDLE) {
         unsafe {
+            assert!(!self.started);
+
             self.wait(fence, fence_event);
 
             self.command_allocator.Reset().unwrap();
 
             self.available_command_lists
                 .append(&mut self.used_command_lists);
+
+            self.started = true;
         }
+    }
+
+    fn end(&mut self, command_queue: &ID3D12CommandQueue, fence: &ID3D12Fence, fence_value: u64) {
+        assert!(self.started);
+
+        unsafe {
+            command_queue.Signal(fence, fence_value).unwrap();
+        }
+        self.fence_value = fence_value;
+
+        self.started = false;
     }
 
     unsafe fn wait(&self, fence: &ID3D12Fence, fence_event: HANDLE) {
@@ -315,6 +333,8 @@ impl Frame {
     }
 
     fn new_command_list(&mut self, device: &ID3D12Device) -> ID3D12GraphicsCommandList {
+        assert!(self.started);
+
         let command_list = if self.available_command_lists.is_empty() {
             unsafe {
                 device
