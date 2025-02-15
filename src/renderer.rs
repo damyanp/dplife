@@ -1,3 +1,5 @@
+use std::ffi::c_void;
+
 use array_init::array_init;
 use d3dx12::*;
 use windows::{
@@ -12,7 +14,7 @@ use windows::{
         System::Threading::{CreateEventA, WaitForSingleObject, INFINITE},
     },
 };
-use winit::window::Window;
+use winit::window::{Window, WindowId};
 
 pub mod points;
 
@@ -65,7 +67,7 @@ impl Renderer {
                 .unwrap();
 
             let size = window.inner_size();
-            let hwnd = HWND(std::mem::transmute(window.id()));
+            let hwnd = HWND(std::mem::transmute::<WindowId, *mut c_void>(window.id()));
 
             let swap_chain = SwapChain::new(&factory, &device, &command_queue, size, hwnd);
 
