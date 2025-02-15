@@ -119,12 +119,12 @@ impl<'a> Drop for RawMapped<'a> {
 
 impl<'a> RawMapped<'a> {
     pub unsafe fn as_mut_offset<T>(&mut self, byte_offset: isize) -> &mut T {
-        std::mem::transmute(self.mapped.byte_offset(byte_offset))
+        &mut *(self.mapped.offset(byte_offset) as *mut T)
     }
 
     pub unsafe fn as_mut_slice_offset<T>(&mut self, byte_offset: isize, element_count: usize) -> &mut [T] {
         std::slice::from_raw_parts_mut(
-            std::mem::transmute(self.mapped.byte_offset(byte_offset)),
+            self.mapped.offset(byte_offset) as *mut T,
             element_count)
     }
 }
@@ -133,7 +133,7 @@ impl<'a, T> Mapped<'a, T> {
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
             std::slice::from_raw_parts_mut(
-                std::mem::transmute(self.raw_mapped.mapped),
+                self.raw_mapped.mapped as *mut T,
                 self.element_count,
             )
         }
@@ -142,7 +142,7 @@ impl<'a, T> Mapped<'a, T> {
     pub fn as_slice(&self) -> &[T] {
         unsafe {
             std::slice::from_raw_parts(
-                std::mem::transmute(self.raw_mapped.mapped),
+                self.raw_mapped.mapped as *mut T,
                 self.element_count,
             )
         }
