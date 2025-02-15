@@ -85,7 +85,7 @@ impl Camera {
         self.matrix
     }
 
-    fn calculate_matrix(pos:Vec2<f32>, scale: f32) -> Mat4<f32> {
+    fn calculate_matrix(pos: Vec2<f32>, scale: f32) -> Mat4<f32> {
         let translate: Mat4<f32> = Mat4::translation_2d(pos);
         let scale = Mat4::scaling_3d(scale);
 

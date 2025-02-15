@@ -52,7 +52,7 @@ pub struct Frame {
     command_allocator: ID3D12CommandAllocator,
     available_command_lists: Vec<ID3D12GraphicsCommandList>,
     used_command_lists: Vec<ID3D12GraphicsCommandList>,
-    started: bool
+    started: bool,
 }
 
 impl Renderer {
@@ -299,7 +299,7 @@ impl Frame {
             command_allocator,
             available_command_lists: Vec::new(),
             used_command_lists: Vec::new(),
-            started: false
+            started: false,
         }
     }
 

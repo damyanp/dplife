@@ -239,7 +239,6 @@ impl App {
     }
 
     fn render(&mut self) {
-
         self.renderer.start_new_frame();
 
         let cl = self.renderer.new_command_list();
@@ -250,7 +249,6 @@ impl App {
 
         self.renderer.execute_command_lists(ecl![cl]);
 
-        
         let render_target = self.renderer.get_render_target().clone();
 
         let cl = self.renderer.new_command_list();

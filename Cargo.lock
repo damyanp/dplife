@@ -466,7 +466,7 @@ dependencies = [
 [[package]]
 name = "imgui-windows-d3d12-renderer"
 version = "0.1.2"
-source = "git+https://github.com/damyanp/imgui-windows-d3d12-renderer.git#ac4e5dd990bc39c44cfc6c0f843de89016d5ef89"
+source = "git+https://github.com/damyanp/imgui-windows-d3d12-renderer.git#ab385f170eda122edd3a29135ead8d1a86a187f9"
 dependencies = [
  "imgui",
  "imgui-sys",
