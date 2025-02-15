@@ -15,8 +15,8 @@ imgui = { git = "https://github.com/imgui-rs/imgui-rs.git", rev = "67f7f11363e62
 imgui-winit-support = { git = "https://github.com/imgui-rs/imgui-rs.git", rev = "67f7f11363e62f09aa0e1288a17800e505860486" }
 imgui-windows-d3d12-renderer = { git = "https://github.com/damyanp/imgui-windows-d3d12-renderer.git" }
 winit = "^0.29.3"
-rand = "0.8"
-vek = "0.16"
+rand = "0.9.0"
+vek = "0.17.1"
 palette = "0.7.5"
 
 [dependencies.windows]

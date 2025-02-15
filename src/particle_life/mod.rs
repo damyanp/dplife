@@ -1,7 +1,7 @@
 use array_init::array_init;
 use d3dx12::{HeapProperties, Mappable, ResourceDesc, ShaderBytecode};
 use palette::{FromColor, Hsl, Srgb};
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use std::{
     mem::{size_of, size_of_val, swap},
     ops::Range,
@@ -202,15 +202,15 @@ impl Particle {
         let x_coordinate_range = 0.0_f32..size.x;
         let y_coordinate_range = 0.0_f32..size.y;
 
-        let mut rng = thread_rng();
+        let mut rng = rng();
 
         Particle {
             position: Vec2::new(
-                rng.gen_range(x_coordinate_range.clone()),
-                rng.gen_range(y_coordinate_range.clone()),
+                rng.random_range(x_coordinate_range.clone()),
+                rng.random_range(y_coordinate_range.clone()),
             ),
             velocity: Vec2::zero(),
-            kind: ParticleKind(rng.gen_range(0..ParticleKind::MAX)),
+            kind: ParticleKind(rng.random_range(0..ParticleKind::MAX)),
         }
     }
 }
@@ -276,13 +276,13 @@ impl Default for RuleGenerationParameters {
 
 impl Rule {
     fn new_random(params: RuleGenerationParameters) -> Self {
-        let mut rng = thread_rng();
+        let mut rng = rng();
 
-        let min_distance = rng.gen_range(params.min_distance);
-        let max_distance = min_distance + rng.gen_range(params.max_distance);
+        let min_distance = rng.random_range(params.min_distance);
+        let max_distance = min_distance + rng.random_range(params.max_distance);
 
         Rule {
-            force: rng.gen_range(params.force) * if rng.gen_bool(0.5) { -1.0 } else { 1.0 },
+            force: rng.random_range(params.force) * if rng.random_bool(0.5) { -1.0 } else { 1.0 },
             min_distance,
             max_distance,
         }

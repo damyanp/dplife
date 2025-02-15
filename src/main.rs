@@ -206,8 +206,7 @@ impl App {
         );
 
         let world = World::new(&renderer.device, NUM_PARTICLES, world_size);
-        let world_rules =
-            particle_life::Rules::new_random(&ui_state.rule_generation_parameters);
+        let world_rules = particle_life::Rules::new_random(&ui_state.rule_generation_parameters);
 
         App {
             renderer,
