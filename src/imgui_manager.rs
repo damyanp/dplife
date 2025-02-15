@@ -32,8 +32,9 @@ impl ImguiManager {
 
         winit_platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Rounded);
 
-        let hidpi_factor = winit_platform.hidpi_factor();
-        let font_size = (13.0 * hidpi_factor) as f32;
+        #[allow(clippy::cast_possible_truncation)]
+        let hidpi_factor = winit_platform.hidpi_factor() as f32;
+        let font_size = 13.0 * hidpi_factor;
         imgui.fonts().add_font(&[FontSource::DefaultFontData {
             config: Some(FontConfig {
                 size_pixels: font_size,
@@ -41,7 +42,7 @@ impl ImguiManager {
             }),
         }]);
 
-        imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
+        imgui.io_mut().font_global_scale = 1.0 / hidpi_factor;
 
         let window = Arc::new(Mutex::new(window));
 
@@ -56,7 +57,7 @@ impl ImguiManager {
     pub fn new_renderer(
         &mut self,
         device: &ID3D12Device,
-        font_descriptor_handles: DescriptorHandles,
+        font_descriptor_handles: &DescriptorHandles,
     ) -> Renderer {
         Renderer::new(
             &mut self.imgui,

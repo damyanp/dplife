@@ -1,15 +1,28 @@
 use std::ffi::c_void;
 
 use array_init::array_init;
-use d3dx12::*;
+use d3dx12::{CbvSrvUavDescriptorHeap, DescriptorHeap, RtvDescriptorHeap};
 use windows::{
     core::{Interface, HSTRING},
     Win32::{
         Foundation::{HANDLE, HWND, RECT},
         Graphics::{
-            Direct3D::*,
-            Direct3D12::*,
-            Dxgi::{Common::*, *},
+            Direct3D::D3D_FEATURE_LEVEL_11_0,
+            Direct3D12::{
+                D3D12CreateDevice, D3D12GetDebugInterface, ID3D12CommandAllocator,
+                ID3D12CommandList, ID3D12CommandQueue, ID3D12Debug, ID3D12Device, ID3D12Fence,
+                ID3D12GraphicsCommandList, ID3D12Resource, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                D3D12_COMMAND_QUEUE_DESC, D3D12_CPU_DESCRIPTOR_HANDLE,
+                D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, D3D12_FENCE_FLAG_NONE, D3D12_MAX_DEPTH,
+                D3D12_MIN_DEPTH, D3D12_VIEWPORT,
+            },
+            Dxgi::{
+                Common::{DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_SAMPLE_DESC},
+                CreateDXGIFactory2, IDXGIAdapter1, IDXGIFactory4, IDXGISwapChain3,
+                DXGI_CREATE_FACTORY_DEBUG, DXGI_MWA_NO_ALT_ENTER, DXGI_PRESENT,
+                DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_EFFECT_FLIP_DISCARD,
+                DXGI_USAGE_RENDER_TARGET_OUTPUT,
+            },
         },
         System::Threading::{CreateEventA, WaitForSingleObject, INFINITE},
     },
@@ -31,6 +44,7 @@ unsafe impl Send for Renderer {}
 pub const FRAME_COUNT: usize = 2;
 
 pub struct SwapChain {
+    #[allow(clippy::struct_field_names)]
     swap_chain: IDXGISwapChain3,
     render_targets: [ID3D12Resource; FRAME_COUNT],
     rtv_heap: RtvDescriptorHeap,
@@ -92,7 +106,7 @@ impl Renderer {
     }
 
     pub fn start_new_frame(&mut self) {
-        self.frame_manager.as_mut().unwrap().start_new_frame()
+        self.frame_manager.as_mut().unwrap().start_new_frame();
     }
 
     pub fn end_frame(&mut self) {
@@ -179,18 +193,20 @@ impl SwapChain {
             let rtv_heap = RtvDescriptorHeap::new(device, FRAME_COUNT).unwrap();
 
             let render_targets = array_init(|i| {
-                let render_target: ID3D12Resource = swap_chain.GetBuffer(i as u32).unwrap();
+                let render_target: ID3D12Resource =
+                    swap_chain.GetBuffer(u32::try_from(i).unwrap()).unwrap();
                 device.CreateRenderTargetView(
                     &render_target,
                     None,
                     rtv_heap.get_cpu_descriptor_handle(i),
                 );
                 render_target
-                    .SetName(&HSTRING::from(format!("RenderTarget {}", i)))
+                    .SetName(&HSTRING::from(format!("RenderTarget {i}")))
                     .unwrap();
                 render_target
             });
 
+            #[allow(clippy::cast_precision_loss)]
             let viewport = D3D12_VIEWPORT {
                 TopLeftX: 0.0,
                 TopLeftY: 0.0,
@@ -203,8 +219,8 @@ impl SwapChain {
             let scissor_rect = RECT {
                 left: 0,
                 top: 0,
-                right: size.width as i32,
-                bottom: size.height as i32,
+                right: size.width.try_into().unwrap(),
+                bottom: size.height.try_into().unwrap(),
             };
 
             SwapChain {
@@ -290,7 +306,7 @@ impl Frame {
             .CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT)
             .unwrap();
         command_allocator
-            .SetName(&HSTRING::from(format!("Command Allocator {}", index)))
+            .SetName(&HSTRING::from(format!("Command Allocator {index}")))
             .unwrap();
 
         Frame {
@@ -370,7 +386,7 @@ unsafe fn make_swap_chain(
     hwnd: HWND,
 ) -> IDXGISwapChain3 {
     let swap_chain_desc = DXGI_SWAP_CHAIN_DESC1 {
-        BufferCount: FRAME_COUNT as u32,
+        BufferCount: u32::try_from(FRAME_COUNT).unwrap(),
         Width: size.width,
         Height: size.height,
         Format: DXGI_FORMAT_R8G8B8A8_UNORM,

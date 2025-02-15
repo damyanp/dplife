@@ -37,3 +37,5 @@ d3dx12 = { path = "d3dx12" }
 #[patch.crates-io]
 #imgui-windows-d3d12-renderer = { path = "../imgui-windows-d3d12-renderer" }
 
+[lints.clippy]
+pedantic = { level="deny", priority= -1 }

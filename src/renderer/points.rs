@@ -44,7 +44,7 @@ impl PointsBuffers {
     }
 
     fn create_vertex_buffers(device: &ID3D12Device) -> [ID3D12Resource; 2] {
-        const INITIAL_VERTEX_COUNT: usize = 100000;
+        const INITIAL_VERTEX_COUNT: usize = 100_000;
 
         array_init(|_| Self::create_vertex_buffer(device, INITIAL_VERTEX_COUNT))
     }
@@ -143,7 +143,7 @@ impl PointsRenderer {
             RasterizerState: RasterizerDesc::reasonable_default(),
             InputLayout: D3D12_INPUT_LAYOUT_DESC {
                 pInputElementDescs: input_layout.as_ptr(),
-                NumElements: input_layout.len() as u32,
+                NumElements: u32::try_from(input_layout.len()).unwrap(),
             },
             PrimitiveTopologyType: D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT,
             NumRenderTargets: 1,
@@ -176,8 +176,8 @@ impl PointsRenderer {
 
             let vbv = D3D12_VERTEX_BUFFER_VIEW {
                 BufferLocation: vertex_buffer.GetGPUVirtualAddress(),
-                SizeInBytes: vertex_buffer.GetDesc().Width as u32,
-                StrideInBytes: size_of::<Vertex>() as u32,
+                SizeInBytes: u32::try_from(vertex_buffer.GetDesc().Width).unwrap(),
+                StrideInBytes: u32::try_from(size_of::<Vertex>()).unwrap(),
             };
 
             cl.IASetVertexBuffers(0, Some(&[vbv]));
@@ -187,8 +187,8 @@ impl PointsRenderer {
 
             cl.SetGraphicsRoot32BitConstants(
                 0,
-                constant_buffer.len() as u32,
-                std::ptr::addr_of!(constant_buffer) as *const c_void,
+                u32::try_from(constant_buffer.len()).unwrap(),
+                std::ptr::addr_of!(constant_buffer).cast::<c_void>(),
                 0,
             );
 

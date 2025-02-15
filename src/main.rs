@@ -54,7 +54,7 @@ fn main() {
     let imgui_manager_for_main_thread = imgui_manager.clone();
 
     let mut main_thread = Some(thread::spawn(move || {
-        main_thread(rx, renderer, imgui_manager_for_main_thread)
+        main_thread(&rx, renderer, imgui_manager_for_main_thread);
     }));
 
     event_loop
@@ -115,7 +115,7 @@ impl UIState {
                         &mut min.end,
                     );
 
-                    if min.start == min.end {
+                    if (min.start - min.end).abs() < 0.001 {
                         min.end = min.start + 0.001;
                     }
 
@@ -126,7 +126,7 @@ impl UIState {
                         &mut max.end,
                     );
 
-                    if max.start == max.end {
+                    if (max.start - max.end).abs() < 0.001 {
                         max.end = max.start + 0.001;
                     }
 
@@ -137,7 +137,7 @@ impl UIState {
                         &mut force.end,
                     );
 
-                    if force.start == force.end {
+                    if (force.start - force.end).abs() < 0.001 {
                         force.end = force.start + 0.001;
                     }
                 }
@@ -180,11 +180,13 @@ impl Drop for App {
 
 impl App {
     fn new(renderer: Renderer, imgui_manager: Arc<Mutex<ImguiManager>>) -> Self {
+        const NUM_PARTICLES: usize = 50000;
+
         let mut im = imgui_manager.lock().unwrap();
 
         let imgui_renderer = im.new_renderer(
             &renderer.device,
-            renderer.descriptor_heap.get_descriptor_handles(0),
+            &renderer.descriptor_heap.get_descriptor_handles(0),
         );
 
         drop(im);
@@ -198,8 +200,6 @@ impl App {
         let camera = Camera::new(*renderer.get_viewport());
         let points_renderer = renderer.new_points_renderer();
 
-        const NUM_PARTICLES: usize = 50000;
-
         let world_size = Vec2::new(
             renderer.get_viewport().Width * 3.0,
             renderer.get_viewport().Height * 3.0,
@@ -207,7 +207,7 @@ impl App {
 
         let world = World::new(&renderer.device, NUM_PARTICLES, world_size);
         let world_rules =
-            particle_life::Rules::new_random(ui_state.rule_generation_parameters.clone());
+            particle_life::Rules::new_random(&ui_state.rule_generation_parameters);
 
         App {
             renderer,
@@ -228,7 +228,7 @@ impl App {
     fn update(&mut self) {
         if self.ui_state.new_rules {
             self.world_rules =
-                particle_life::Rules::new_random(self.ui_state.rule_generation_parameters.clone());
+                particle_life::Rules::new_random(&self.ui_state.rule_generation_parameters);
         }
 
         if self.ui_state.reset_particles {
@@ -309,13 +309,13 @@ impl App {
             ..
         } = event
         {
-            self.mouse.handle_event(window_event);
+            self.mouse.handle_event(&window_event);
         }
     }
 }
 
 struct Mouse {
-    position: Vec2<f32>,
+    position: Vec2<f64>,
     left_button: ElementState,
     right_button: ElementState,
     middle_button: ElementState,
@@ -337,18 +337,18 @@ impl Mouse {
         self.wheel = 0.0;
     }
 
-    fn handle_event(&mut self, window_event: WindowEvent) {
+    fn handle_event(&mut self, window_event: &WindowEvent) {
         match window_event {
             WindowEvent::CursorMoved { position, .. } => {
-                self.position = Vec2::from((position.x as f32, position.y as f32));
+                self.position = Vec2::new(position.x, position.y);
             }
             WindowEvent::MouseInput { state, button, .. } => {
-                use winit::event::MouseButton::*;
+                use winit::event::MouseButton::{Left, Middle, Right};
 
                 match button {
-                    Left => self.left_button = state,
-                    Right => self.right_button = state,
-                    Middle => self.middle_button = state,
+                    Left => self.left_button = *state,
+                    Right => self.right_button = *state,
+                    Middle => self.middle_button = *state,
                     _ => (),
                 }
             }
@@ -363,6 +363,7 @@ impl Mouse {
         }
     }
 
+    #[allow(clippy::unused_self)]
     fn draw_ui(&self, _imgui: &mut imgui::Ui) {
         // _imgui.text(format!(
         //     "{:?} {:?} {:?} {:?} {:?}",
@@ -372,7 +373,7 @@ impl Mouse {
 }
 
 fn main_thread(
-    rx: Receiver<ThreadMessage>,
+    rx: &Receiver<ThreadMessage>,
     renderer: Renderer,
     imgui_manager: Arc<Mutex<ImguiManager>>,
 ) {

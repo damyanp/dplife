@@ -42,7 +42,7 @@ impl Camera {
     }
 
     pub fn update(&mut self, mouse: &Mouse) {
-        let mouse_pos = self.window_to_view(mouse.position);
+        let mouse_pos = self.window_to_view(mouse.position.numcast().unwrap());
 
         if mouse.middle_button == ElementState::Pressed {
             if let Some(move_operation) = &self.move_operation {

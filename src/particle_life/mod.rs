@@ -42,8 +42,8 @@ pub struct ShaderGlobalConstants {
 impl World {
     pub fn new(device: &ID3D12Device, num_particles: usize, size: Vec2<f32>) -> Self {
         let shader_constants = ShaderGlobalConstants {
-            particle_type_max: ParticleType::MAX as u32,
-            num_particles: num_particles as u32,
+            particle_type_max: u32::from(ParticleKind::MAX),
+            num_particles: u32::try_from(num_particles).unwrap(),
             world_size: size.into_array(),
             friction: 0.9_f32,
             force_multiplier: 0.05_f32,
@@ -52,7 +52,7 @@ impl World {
         let particle_buffer_size = num_particles * size_of::<Particle>();
         let vertex_buffer_size = num_particles * size_of::<Vertex>();
 
-        let num_rules = (ParticleType::MAX * ParticleType::MAX) as usize;
+        let num_rules = (ParticleKind::MAX * ParticleKind::MAX) as usize;
         let constant_buffer_size =
             size_of::<ShaderGlobalConstants>() + size_of::<Rule>() * num_rules;
 
@@ -117,29 +117,29 @@ impl World {
             *dest.as_mut_offset(dest_offset) = self.shader_constants;
             cl.CopyBufferRegion(
                 &self.constant_buffer,
-                dest_offset as u64,
+                u64::try_from(dest_offset).unwrap(),
                 &staging_dest,
-                dest_offset as u64,
-                size_of_val(&self.shader_constants) as u64,
+                u64::try_from(dest_offset).unwrap(),
+                u64::try_from(size_of_val(&self.shader_constants)).unwrap(),
             );
-            dest_offset += size_of_val(&self.shader_constants) as isize;
+            dest_offset += isize::try_from(size_of_val(&self.shader_constants)).unwrap();
 
             *dest.as_mut_offset(dest_offset) = *rules;
             cl.CopyBufferRegion(
                 &self.constant_buffer,
-                dest_offset as u64,
+                u64::try_from(dest_offset).unwrap(),
                 &staging_dest,
-                dest_offset as u64,
+                u64::try_from(dest_offset).unwrap(),
                 size_of_val(rules) as u64,
             );
-            dest_offset += size_of_val(rules) as isize;
+            dest_offset += isize::try_from(size_of_val(rules)).unwrap();
 
             // Copy a new set of random particles if needed
             if self.reset_particles {
                 let size = Vec2::from(self.shader_constants.world_size);
                 let num_particles = self.shader_constants.num_particles;
 
-                let particles: Vec<_> = (0..num_particles).map(|_| Particle::new(&size)).collect();
+                let particles: Vec<_> = (0..num_particles).map(|_| Particle::new(size)).collect();
 
                 let dest_particles = dest.as_mut_slice_offset(dest_offset, num_particles as usize);
                 dest_particles.copy_from_slice(particles.as_slice());
@@ -148,8 +148,8 @@ impl World {
                     &self.old_particles,
                     0,
                     &staging_dest,
-                    dest_offset as u64,
-                    num_particles as u64 * size_of::<Particle>() as u64,
+                    u64::try_from(dest_offset).unwrap(),
+                    u64::from(num_particles) * size_of::<Particle>() as u64,
                 );
             }
         }
@@ -194,11 +194,11 @@ fn create_buffer(device: &ID3D12Device, size: usize) -> ID3D12Resource {
 struct Particle {
     position: Vec2<f32>,
     velocity: Vec2<f32>,
-    particle_type: ParticleType,
+    kind: ParticleKind,
 }
 
 impl Particle {
-    fn new(size: &Vec2<f32>) -> Self {
+    fn new(size: Vec2<f32>) -> Self {
         let x_coordinate_range = 0.0_f32..size.x;
         let y_coordinate_range = 0.0_f32..size.y;
 
@@ -210,21 +210,21 @@ impl Particle {
                 rng.gen_range(y_coordinate_range.clone()),
             ),
             velocity: Vec2::zero(),
-            particle_type: ParticleType(rng.gen_range(0..ParticleType::MAX)),
+            kind: ParticleKind(rng.gen_range(0..ParticleKind::MAX)),
         }
     }
 }
 
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
-struct ParticleType(u8);
+struct ParticleKind(u8);
 
 #[allow(dead_code)]
-impl ParticleType {
+impl ParticleKind {
     const MAX: u8 = 8;
 
-    fn as_color(&self) -> u32 {
-        let hsl = Hsl::new_srgb(360.0 * (self.0 as f32 / Self::MAX as f32), 1.0, 0.5);
+    fn as_color(self) -> u32 {
+        let hsl = Hsl::new_srgb(360.0 * (f32::from(self.0) / f32::from(Self::MAX)), 1.0, 0.5);
         let rgb = Srgb::from_color(hsl);
         rgb.into_format().into()
     }
@@ -233,19 +233,19 @@ impl ParticleType {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Rules {
-    rules: [Rule; (ParticleType::MAX * ParticleType::MAX) as usize],
+    rules: [Rule; (ParticleKind::MAX * ParticleKind::MAX) as usize],
 }
 
 #[allow(dead_code)]
 impl Rules {
-    pub fn new_random(params: RuleGenerationParameters) -> Self {
+    pub fn new_random(params: &RuleGenerationParameters) -> Self {
         Rules {
             rules: array_init(|_| Rule::new_random(params.clone())),
         }
     }
 
-    fn get_rule(&self, a: ParticleType, b: ParticleType) -> &Rule {
-        &self.rules[(a.0 * ParticleType::MAX + b.0) as usize]
+    fn get_rule(&self, a: ParticleKind, b: ParticleKind) -> &Rule {
+        &self.rules[(a.0 * ParticleKind::MAX + b.0) as usize]
     }
 }
 
