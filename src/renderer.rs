@@ -24,6 +24,8 @@ pub struct Renderer {
     frame_manager: Option<FrameManager>,
 }
 
+unsafe impl Send for Renderer {}
+
 pub const FRAME_COUNT: usize = 2;
 
 pub struct SwapChain {
@@ -63,7 +65,7 @@ impl Renderer {
                 .unwrap();
 
             let size = window.inner_size();
-            let hwnd = HWND(Into::<u64>::into(window.id()) as isize);
+            let hwnd = HWND(std::mem::transmute(window.id()));
 
             let swap_chain = SwapChain::new(&factory, &device, &command_queue, size, hwnd);
 
@@ -237,7 +239,7 @@ impl SwapChain {
 
     fn present(&self) {
         unsafe {
-            self.swap_chain.Present(1, 0).unwrap();
+            self.swap_chain.Present(1, DXGI_PRESENT(0)).unwrap();
         }
     }
 }
@@ -408,9 +410,8 @@ fn get_hardware_adapter(factory: &IDXGIFactory4) -> windows::core::Result<IDXGIA
     for i in 0.. {
         let adapter = unsafe { factory.EnumAdapters1(i)? };
 
-        let mut desc = Default::default();
-        unsafe { adapter.GetDesc1(&mut desc)? };
-
+        // let desc = unsafe { adapter.GetDesc1()? };
+        //
         // if (DXGI_ADAPTER_FLAG(desc.Flags as i32) & DXGI_ADAPTER_FLAG_SOFTWARE)
         //     != DXGI_ADAPTER_FLAG_NONE
         // {

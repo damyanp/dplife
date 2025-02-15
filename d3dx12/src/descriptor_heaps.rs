@@ -293,7 +293,7 @@ impl CbvSrvUavDescriptorHeap {
         desc: Option<*const D3D12_SHADER_RESOURCE_VIEW_DESC>,
         dest_index: usize,
     ) where
-        RESOURCE: ::windows::core::IntoParam<ID3D12Resource>,
+        RESOURCE: ::windows::core::Param<ID3D12Resource>,
     {
         device.CreateShaderResourceView(resource, desc, self.get_cpu_descriptor_handle(dest_index));
     }
