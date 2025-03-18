@@ -334,18 +334,26 @@ impl Frame {
         }
     }
 
-    fn end(&mut self, command_queue: &ID3D12CommandQueue, fence: &ID3D12Fence, fence_value: u64) {
+    fn end(
+        &mut self,
+        command_queue: &ID3D12CommandQueue,
+        fence: &ID3D12Fence,
+        next_fence_value: u64,
+    ) {
         assert!(self.started);
 
         unsafe {
-            command_queue.Signal(fence, fence_value).unwrap();
+            command_queue.Signal(fence, next_fence_value).unwrap();
         }
-        self.fence_value = fence_value;
+        self.fence_value = next_fence_value;
 
         self.started = false;
     }
 
     unsafe fn wait(&self, fence: &ID3D12Fence, fence_event: HANDLE) {
+        if self.fence_value == 0 {
+            return;
+        };
         fence
             .SetEventOnCompletion(self.fence_value, fence_event)
             .unwrap();

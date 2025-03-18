@@ -3,14 +3,18 @@ use d3dx12::{HeapProperties, Mappable, ResourceDesc, ShaderBytecode};
 use palette::{FromColor, Hsl, Srgb};
 use rand::{rng, Rng};
 use std::{
-    mem::{size_of, size_of_val, swap},
+    mem::{size_of, size_of_val},
     ops::Range,
 };
 use vek::Vec2;
-use windows::Win32::Graphics::Direct3D12::{
-    ID3D12Device, ID3D12GraphicsCommandList, ID3D12PipelineState, ID3D12Resource,
-    ID3D12RootSignature, D3D12_COMPUTE_PIPELINE_STATE_DESC, D3D12_HEAP_FLAG_NONE, D3D12_HEAP_TYPE,
-    D3D12_HEAP_TYPE_DEFAULT, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_COMMON,
+use windows::{
+    core::HSTRING,
+    Win32::Graphics::Direct3D12::{
+        ID3D12Device, ID3D12GraphicsCommandList, ID3D12PipelineState, ID3D12Resource,
+        ID3D12RootSignature, D3D12_COMPUTE_PIPELINE_STATE_DESC, D3D12_HEAP_FLAG_NONE,
+        D3D12_HEAP_TYPE, D3D12_HEAP_TYPE_DEFAULT, D3D12_HEAP_TYPE_UPLOAD,
+        D3D12_RESOURCE_STATE_COMMON,
+    },
 };
 
 use crate::renderer::points::Vertex;
@@ -21,8 +25,7 @@ pub struct World {
     reset_particles: bool,
 
     vertex_buffer: ID3D12Resource,
-    old_particles: ID3D12Resource,
-    new_particles: ID3D12Resource,
+    particles_buffers: [ID3D12Resource; 2],
     constant_buffer: ID3D12Resource,
 
     rs: ID3D12RootSignature,
@@ -61,13 +64,22 @@ impl World {
 
         World {
             shader_constants,
-            vertex_buffer: create_buffer(device, vertex_buffer_size),
-            old_particles: create_buffer(device, particle_buffer_size),
-            new_particles: create_buffer(device, particle_buffer_size),
-            staging_buffers: array_init(|_| {
-                create_upload_buffer(device, particle_buffer_size + constant_buffer_size)
+            vertex_buffer: create_buffer(device, vertex_buffer_size, "vertex_buffer"),
+            particles_buffers: array_init(|i| {
+                create_buffer(
+                    device,
+                    particle_buffer_size,
+                    format!("particles-{i}").as_str(),
+                )
             }),
-            constant_buffer: create_buffer(device, constant_buffer_size),
+            staging_buffers: array_init(|i| {
+                create_upload_buffer(
+                    device,
+                    particle_buffer_size + constant_buffer_size,
+                    format!("staging-{i}").as_str(),
+                )
+            }),
+            constant_buffer: create_buffer(device, constant_buffer_size, "constant_buffer"),
 
             reset_particles: true,
 
@@ -97,13 +109,20 @@ impl World {
                 self.constant_buffer.GetGPUVirtualAddress()
                     + size_of::<ShaderGlobalConstants>() as u64,
             );
-            cl.SetComputeRootShaderResourceView(2, self.old_particles.GetGPUVirtualAddress());
-            cl.SetComputeRootUnorderedAccessView(3, self.new_particles.GetGPUVirtualAddress());
+            cl.SetComputeRootShaderResourceView(
+                2,
+                self.particles_buffers[0].GetGPUVirtualAddress(),
+            );
+            cl.SetComputeRootUnorderedAccessView(
+                3,
+                self.particles_buffers[1].GetGPUVirtualAddress(),
+            );
             cl.SetComputeRootUnorderedAccessView(4, self.vertex_buffer.GetGPUVirtualAddress());
             cl.Dispatch(self.shader_constants.num_particles / 32, 1, 1);
         }
 
-        swap(&mut self.old_particles, &mut self.new_particles);
+        self.staging_buffers.swap(0, 1);
+        self.particles_buffers.swap(0, 1);
     }
 
     fn update_buffers(&mut self, rules: &Rules, cl: &ID3D12GraphicsCommandList) {
@@ -145,7 +164,7 @@ impl World {
                 dest_particles.copy_from_slice(particles.as_slice());
 
                 cl.CopyBufferRegion(
-                    &self.old_particles,
+                    &self.particles_buffers[0],
                     0,
                     &staging_dest,
                     u64::try_from(dest_offset).unwrap(),
@@ -164,6 +183,7 @@ fn create_buffer_with_type(
     device: &ID3D12Device,
     size: usize,
     heap_type: D3D12_HEAP_TYPE,
+    name: &str,
 ) -> ID3D12Resource {
     unsafe {
         let mut resource: Option<ID3D12Resource> = None;
@@ -177,16 +197,18 @@ fn create_buffer_with_type(
                 &mut resource,
             )
             .unwrap();
-        resource.unwrap()
+        let resource = resource.unwrap();
+        resource.SetName(&HSTRING::from(name)).unwrap();
+        resource
     }
 }
 
-fn create_upload_buffer(device: &ID3D12Device, size: usize) -> ID3D12Resource {
-    create_buffer_with_type(device, size, D3D12_HEAP_TYPE_UPLOAD)
+fn create_upload_buffer(device: &ID3D12Device, size: usize, name: &str) -> ID3D12Resource {
+    create_buffer_with_type(device, size, D3D12_HEAP_TYPE_UPLOAD, name)
 }
 
-fn create_buffer(device: &ID3D12Device, size: usize) -> ID3D12Resource {
-    create_buffer_with_type(device, size, D3D12_HEAP_TYPE_DEFAULT)
+fn create_buffer(device: &ID3D12Device, size: usize, name: &str) -> ID3D12Resource {
+    create_buffer_with_type(device, size, D3D12_HEAP_TYPE_DEFAULT, name)
 }
 
 #[derive(Clone, Copy)]
@@ -217,14 +239,17 @@ impl Particle {
 
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
-struct ParticleKind(u8);
+struct ParticleKind(u32);
 
 #[allow(dead_code)]
 impl ParticleKind {
-    const MAX: u8 = 8;
+    const MAX: u32 = 8;
 
     fn as_color(self) -> u32 {
-        let hsl = Hsl::new_srgb(360.0 * (f32::from(self.0) / f32::from(Self::MAX)), 1.0, 0.5);
+        let kind = self.0 as f32;
+        let max = Self::MAX as f32;
+
+        let hsl = Hsl::new_srgb(360.0 * (kind / max), 1.0, 0.5);
         let rgb = Srgb::from_color(hsl);
         rgb.into_format().into()
     }
