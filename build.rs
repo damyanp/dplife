@@ -1,3 +1,5 @@
+#![allow(clippy::missing_panics_doc)]
+
 use d3dx12::build::get_dxc_path;
 
 use std::{
@@ -45,14 +47,14 @@ pub struct DXCCompiler {
 }
 
 impl DXCCompiler {
-    pub fn new<P: Into<PathBuf>>(path: P) -> DXCCompiler {
+    pub fn new(path: impl Into<PathBuf>) -> DXCCompiler {
         DXCCompiler { path: path.into() }
     }
 
-    pub fn compile<P1: AsRef<Path>, P2: AsRef<Path>>(
+    pub fn compile(
         &mut self,
-        source_path: P1,
-        dest_path: P2,
+        source_path: &str,
+        dest_path: &str,
         profile: &str,
         entry_point: &str,
     ) {
@@ -61,7 +63,7 @@ impl DXCCompiler {
         let mut command = Command::new(&self.path);
 
         let result = command
-            .arg(source_path.as_ref())
+            .arg(source_path)
             .args([
                 "-T",
                 profile,
@@ -79,8 +81,10 @@ impl DXCCompiler {
         stdout().write_all(&result.stdout).unwrap();
         stderr().write_all(&result.stderr).unwrap();
 
-        if !result.status.success() {
-            panic!("dxc failed: {:?}", result.status.code());
-        }
+        assert!(
+            result.status.success(),
+            "dxc failed: {:?}",
+            result.status.code()
+        );
     }
 }
