@@ -41,23 +41,22 @@ fn main() {
 }
 
 pub struct DXCCompiler {
-    path: PathBuf
+    path: PathBuf,
 }
 
 impl DXCCompiler {
-    pub fn new<P : Into<PathBuf>>(path: P) -> DXCCompiler {
+    pub fn new<P: Into<PathBuf>>(path: P) -> DXCCompiler {
         DXCCompiler { path: path.into() }
     }
 
-    pub fn compile<P1 : AsRef<Path>, P2 : AsRef<Path>>(
+    pub fn compile<P1: AsRef<Path>, P2: AsRef<Path>>(
         &mut self,
         source_path: P1,
         dest_path: P2,
         profile: &str,
         entry_point: &str,
     ) {
-        let dest_path = Path::new(
-            &env::var_os("OUT_DIR").unwrap()).join(dest_path);
+        let dest_path = Path::new(&env::var_os("OUT_DIR").unwrap()).join(dest_path);
 
         let mut command = Command::new(&self.path);
 
@@ -72,7 +71,7 @@ impl DXCCompiler {
                 dest_path.to_str().unwrap(),
                 "-Od",
                 "-Zi",
-                "-Qembed_debug"
+                "-Qembed_debug",
             ])
             .output()
             .expect("Failed to run dxc");
