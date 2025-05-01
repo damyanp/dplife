@@ -10,7 +10,7 @@ use std::{
 };
 
 fn main() {
-    let mut dxc = DXCCompiler::new(get_dxc_path());
+    let dxc = DXCCompiler::new(get_dxc_path());
 
     dxc.compile(
         "src/renderer/points_renderer.hlsl",
@@ -52,7 +52,7 @@ impl DXCCompiler {
     }
 
     pub fn compile(
-        &mut self,
+        &self,
         source_path: &str,
         dest_path: &str,
         profile: &str,
