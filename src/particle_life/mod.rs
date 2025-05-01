@@ -45,7 +45,7 @@ pub struct ShaderGlobalConstants {
 impl World {
     pub fn new(device: &ID3D12Device, num_particles: usize, size: Vec2<f32>) -> Self {
         let shader_constants = ShaderGlobalConstants {
-            particle_type_max: u32::from(ParticleKind::MAX),
+            particle_type_max: ParticleKind::MAX,
             num_particles: u32::try_from(num_particles).unwrap(),
             world_size: size.into_array(),
             friction: 0.9_f32,
@@ -245,6 +245,7 @@ struct ParticleKind(u32);
 impl ParticleKind {
     const MAX: u32 = 8;
 
+    #[allow(clippy::cast_precision_loss)]
     fn as_color(self) -> u32 {
         let kind = self.0 as f32;
         let max = Self::MAX as f32;

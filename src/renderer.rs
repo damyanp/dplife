@@ -353,7 +353,7 @@ impl Frame {
     unsafe fn wait(&self, fence: &ID3D12Fence, fence_event: HANDLE) {
         if self.fence_value == 0 {
             return;
-        };
+        }
         fence
             .SetEventOnCompletion(self.fence_value, fence_event)
             .unwrap();
