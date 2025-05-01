@@ -51,13 +51,7 @@ impl DXCCompiler {
         DXCCompiler { path: path.into() }
     }
 
-    pub fn compile(
-        &self,
-        source_path: &str,
-        dest_path: &str,
-        profile: &str,
-        entry_point: &str,
-    ) {
+    pub fn compile(&self, source_path: &str, dest_path: &str, profile: &str, entry_point: &str) {
         let dest_path = Path::new(&env::var_os("OUT_DIR").unwrap()).join(dest_path);
 
         let mut command = Command::new(&self.path);
